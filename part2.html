@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Part 2 — CRT &amp; RSA-CRT | BSD 404</title>
+<style>
+:root {
+  --bg0: #0b0f1a; --bg1: #0f1729; --bg2: #141e35; --bg3: #192340; --bg4: #1e2a4a;
+  --border: #1f2e50; --border2: #27395e;
+  --txt: #e2eaf8; --txt2: #8da3c4; --txt3: #4a6080;
+  --acc: #3da9fc; --acc2: #8b5cf6; --grn: #10d9a0; --red: #f0504a; --ylw: #f6b93b; --org: #f0803c;
+  --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.03);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04);
+  --glow-acc: 0 0 0 1px rgba(61,169,252,.25), 0 0 16px rgba(61,169,252,.08);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 13px; }
+body {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg0); color: var(--txt);
+  min-height: 100vh; display: flex; flex-direction: column;
+  overflow: hidden; height: 100vh;
+}
+code, .pseudocode, .pc-code, .pc-num,
+input[type="text"], input[type="number"], textarea,
+.stat-val, .step-counter, .explanation, .history-table {
+  font-family: 'IBM Plex Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg1); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* TOP HEADER */
+.top-header {
+  background: linear-gradient(90deg, #0d1427 0%, #0b1122 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px; display: flex; align-items: center; gap: 20px;
+  height: 50px; flex-shrink: 0;
+}
+.brand { display: flex; align-items: center; gap: 9px; flex-shrink: 0; }
+.brand-diamond {
+  width: 7px; height: 7px; background: var(--acc);
+  transform: rotate(45deg); box-shadow: 0 0 8px rgba(61,169,252,.6); flex-shrink: 0;
+}
+.brand-name { font-size: 12px; font-weight: 700; color: var(--txt); letter-spacing: .2px; }
+.brand-sep { color: var(--txt3); font-size: 11px; }
+.brand-course { font-size: 11px; color: var(--txt3); }
+.part-nav { display: flex; gap: 4px; margin-left: auto; }
+.part-link {
+  padding: 6px 13px; border-radius: var(--radius-sm);
+  border: 1px solid transparent; font-size: 11px; font-weight: 600;
+  color: var(--txt2); text-decoration: none; transition: all .18s;
+}
+.part-link:hover { border-color: var(--border); color: var(--txt); background: var(--bg3); }
+.part-link.active { background: rgba(61,169,252,.12); border-color: rgba(61,169,252,.3); color: var(--acc); }
+.part-link.done { color: var(--grn); border-color: rgba(16,217,160,.2); background: rgba(16,217,160,.06); }
+
+/* LECTURE STRIP */
+.lecture-strip {
+  background: var(--bg1); border-bottom: 1px solid var(--border);
+  flex-shrink: 0; max-height: 44px; overflow: hidden; transition: max-height .35s ease;
+}
+.lecture-strip.open { max-height: 500px; overflow-y: auto; }
+.lecture-toggle {
+  display: flex; align-items: center; gap: 10px; padding: 12px 20px;
+  cursor: pointer; user-select: none; border: none; background: none; width: 100%;
+  color: var(--txt2); font-size: 11px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase; text-align: left;
+}
+.lecture-toggle:hover { color: var(--acc); }
+.lecture-toggle-arrow { margin-left: auto; font-size: 9px; transition: transform .2s; }
+.lecture-strip.open .lecture-toggle-arrow { transform: rotate(180deg); }
+.lecture-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 0 20px 18px; }
+.lec-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 13px 14px; }
+.lec-card-title {
+  font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--acc); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+}
+.lec-card-title::before {
+  content: ''; display: inline-block; width: 3px; height: 9px; border-radius: 2px;
+  background: var(--acc); flex-shrink: 0;
+}
+.lec-card p, .lec-card li { font-size: 11px; color: var(--txt2); line-height: 1.75; }
+.lec-card ul { padding-left: 14px; }
+.concept-box {
+  background: rgba(61,169,252,.05); border-left: 3px solid var(--acc);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 8px 11px; margin: 8px 0; font-size: 10.5px; line-height: 1.65; color: var(--txt2);
+}
+.concept-box.grn { border-color: var(--grn); background: rgba(16,217,160,.05); }
+.concept-box.ylw { border-color: var(--ylw); background: rgba(246,185,59,.05); }
+.concept-box.pur { border-color: var(--acc2); background: rgba(139,92,246,.05); }
+.lec-code {
+  background: var(--bg0); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 9px 12px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px;
+  color: var(--txt2); line-height: 1.85; margin: 8px 0;
+}
+.lec-code .kw { color: var(--acc2); }
+.lec-code .fn { color: var(--acc); }
+.lec-code .cm { color: var(--txt3); font-style: italic; }
+
+/* TOOL BODY */
+.tool-body { display: grid; grid-template-columns: 420px 1fr; flex: 1; min-height: 0; overflow: hidden; }
+
+/* LEFT PANEL */
+.left-panel {
+  background: var(--bg1); border-right: 1px solid var(--border);
+  overflow-y: auto; display: flex; flex-direction: column; gap: 9px; padding: 12px;
+}
+.section {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-md); overflow: hidden; flex-shrink: 0; box-shadow: var(--shadow-sm);
+}
+.section:focus-within { box-shadow: var(--glow-acc); }
+.section-header {
+  padding: 9px 13px;
+  background: linear-gradient(90deg, var(--bg3) 0%, rgba(25,35,64,.6) 100%);
+  font-size: 9px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--txt3); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 7px;
+}
+.section-header::before {
+  content: ''; display: inline-block; width: 3px; height: 10px;
+  border-radius: 2px; background: var(--acc); opacity: .6; flex-shrink: 0;
+}
+.section-header.grn::before { background: var(--grn); }
+.section-header.pur::before { background: var(--acc2); }
+.section-header.ylw::before { background: var(--ylw); }
+.section-body { padding: 11px 12px; }
+label {
+  display: block; font-size: 9px; font-weight: 600; color: var(--txt3);
+  margin-bottom: 4px; letter-spacing: 1px; text-transform: uppercase;
+}
+input[type="text"], input[type="number"], textarea, select {
+  width: 100%; background: var(--bg0); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--txt); font-size: 11px;
+  padding: 7px 10px; outline: none; transition: border-color .18s, box-shadow .18s;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--acc); box-shadow: 0 0 0 3px rgba(61,169,252,.1); }
+
+.input-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+.input-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+
+.presets { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-top: 8px; }
+.preset-btn {
+  padding: 7px 8px; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--txt2); cursor: pointer;
+  font-size: 10px; font-weight: 500; text-align: center; transition: all .18s ease;
+}
+.preset-btn:hover { border-color: rgba(61,169,252,.4); color: var(--acc); background: rgba(61,169,252,.07); }
+.preset-btn:active { transform: scale(.98); }
+.preset-btn.active { border-color: rgba(61,169,252,.5); color: var(--acc); background: rgba(61,169,252,.1); }
+
+.speed-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.speed-label-txt { font-size: 9px; font-weight: 600; color: var(--txt3); letter-spacing: 1px; text-transform: uppercase; flex-shrink: 0; }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none; flex: 1; height: 3px;
+  border-radius: 2px; background: var(--border2); outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--acc); cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(61,169,252,.2), 0 2px 6px rgba(0,0,0,.4); transition: box-shadow .18s;
+}
+input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(61,169,252,.3), 0 2px 8px rgba(0,0,0,.5); }
+.speed-val { font-size: 11px; font-weight: 700; color: var(--acc); min-width: 34px; text-align: right; }
+
+.ctrl-row { display: flex; gap: 5px; }
+.ctrl-btn {
+  flex: 1; padding: 9px 4px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg3); color: var(--txt2); cursor: pointer;
+  font-size: 10px; font-weight: 600; letter-spacing: .3px; transition: all .18s ease;
+}
+.ctrl-btn:hover { border-color: rgba(61,169,252,.4); color: var(--acc); background: rgba(61,169,252,.07); }
+.ctrl-btn:active { transform: scale(.97); }
+.ctrl-btn.primary { background: rgba(61,169,252,.12); border-color: rgba(61,169,252,.4); color: var(--acc); box-shadow: inset 0 1px 0 rgba(61,169,252,.15); }
+.ctrl-btn.primary:hover { background: rgba(61,169,252,.18); }
+.ctrl-btn:disabled { opacity: .3; cursor: not-allowed; transform: none; }
+
+.status-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0 2px; }
+.badge { padding: 3px 10px; border-radius: 20px; font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.badge-idle    { background: rgba(74,96,128,.18);  color: var(--txt3);  border: 1px solid rgba(74,96,128,.2); }
+.badge-ready   { background: rgba(61,169,252,.12); color: var(--acc);   border: 1px solid rgba(61,169,252,.25); }
+.badge-playing { background: rgba(16,217,160,.12); color: var(--grn);   border: 1px solid rgba(16,217,160,.25); }
+.badge-paused  { background: rgba(246,185,59,.12); color: var(--ylw);   border: 1px solid rgba(246,185,59,.25); }
+.badge-done    { background: rgba(139,92,246,.12); color: var(--acc2);  border: 1px solid rgba(139,92,246,.25); }
+.step-counter  { font-size: 10px; color: var(--txt2); }
+
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.stat-box {
+  background: var(--bg0); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 10px;
+  text-align: center; position: relative; overflow: hidden;
+}
+.stat-box::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(61,169,252,.4), transparent);
+}
+.stat-val { font-size: 20px; font-weight: 700; color: var(--acc); display: block; line-height: 1.25; letter-spacing: -.5px; }
+.stat-lbl { font-size: 8px; font-weight: 600; color: var(--txt3); text-transform: uppercase; letter-spacing: 1px; }
+
+.pseudocode {
+  background: var(--bg0); border-radius: var(--radius-sm); border: 1px solid var(--border);
+  padding: 8px; font-size: 10.5px; line-height: 1.9; overflow-x: auto;
+  max-height: 220px; overflow-y: auto;
+}
+.pc-line {
+  display: flex; gap: 10px; padding: 2px 6px; border-radius: 4px;
+  cursor: default; white-space: pre; transition: background .15s; position: relative;
+}
+.pc-line:hover { background: rgba(61,169,252,.06); }
+.pc-line.active { background: rgba(61,169,252,.14); box-shadow: inset 3px 0 0 var(--acc); }
+.pc-num { color: var(--txt3); min-width: 20px; text-align: right; user-select: none; }
+.pc-code { color: var(--txt2); }
+.pc-line.active .pc-code { color: var(--acc); }
+.pc-line[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute; left: calc(100% + 8px); top: 0;
+  background: var(--bg4); border: 1px solid var(--border2);
+  padding: 6px 10px; border-radius: var(--radius-sm);
+  font-size: 10px; color: var(--txt); white-space: normal; max-width: 210px;
+  z-index: 300; pointer-events: none; box-shadow: var(--shadow-md); line-height: 1.5;
+}
+.explanation {
+  background: var(--bg0); border-left: 3px solid var(--acc);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 10px 12px; font-size: 11px; color: var(--txt2);
+  line-height: 1.7; min-height: 54px;
+}
+.history-wrap { max-height: 140px; overflow-y: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.history-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.history-table th {
+  background: var(--bg3); padding: 6px 8px; text-align: left;
+  color: var(--txt3); font-size: 8px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; position: sticky; top: 0;
+}
+.history-table td { padding: 4px 8px; border-bottom: 1px solid rgba(31,46,80,.6); color: var(--txt2); cursor: pointer; transition: background .12s; }
+.history-table tr:hover td { background: rgba(61,169,252,.06); color: var(--txt); }
+.history-table tr.current td { background: rgba(61,169,252,.1); color: var(--acc); }
+
+.edu-toggle {
+  width: 100%; background: linear-gradient(90deg, var(--bg3) 0%, rgba(25,35,64,.5) 100%);
+  border: none; border-bottom: 1px solid var(--border);
+  padding: 10px 13px; color: var(--txt2); cursor: pointer;
+  font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  text-align: left; display: flex; justify-content: space-between; align-items: center;
+  transition: color .18s;
+}
+.edu-toggle:hover { color: var(--acc); }
+.edu-toggle .arrow { transition: transform .2s; font-size: 10px; }
+.edu-toggle.open .arrow { transform: rotate(180deg); }
+.edu-body { padding: 13px; font-size: 11px; color: var(--txt2); line-height: 1.75; display: none; }
+.edu-body.open { display: block; }
+.edu-body h4 { font-size: 11px; font-weight: 700; color: var(--txt); margin: 11px 0 5px; }
+
+/* mode tabs */
+.mode-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.mode-tab {
+  flex: 1; padding: 8px 6px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--bg3);
+  color: var(--txt2); font-size: 10px; font-weight: 600;
+  cursor: pointer; text-align: center; transition: all .18s;
+}
+.mode-tab:hover { border-color: rgba(61,169,252,.3); color: var(--acc); }
+.mode-tab.active { background: rgba(61,169,252,.12); border-color: rgba(61,169,252,.4); color: var(--acc); }
+
+/* RIGHT PANEL */
+.right-panel { display: flex; flex-direction: column; background: var(--bg0); overflow: hidden; }
+.viz-header {
+  padding: 11px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 14px;
+  background: linear-gradient(90deg, var(--bg1) 0%, rgba(15,23,41,.8) 100%);
+  flex-shrink: 0;
+}
+.viz-title { font-size: 12px; font-weight: 700; color: var(--txt); }
+.legend { display: flex; gap: 12px; margin-left: auto; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 9px; font-weight: 500; color: var(--txt2); }
+.legend-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+
+.viz-area { flex: 1; position: relative; overflow: hidden; }
+svg.canvas { width: 100%; height: 100%; display: block; }
+
+.result-strip {
+  background: var(--bg1); border-top: 1px solid var(--border);
+  padding: 10px 20px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px; flex-shrink: 0; min-height: 42px;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+.res-label { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--txt3); }
+.res-val { color: var(--grn); font-weight: 700; }
+
+@keyframes node-glow { 0%,100%{filter:drop-shadow(0 0 4px currentColor)}50%{filter:drop-shadow(0 0 14px currentColor)} }
+@keyframes flow-dash { to{stroke-dashoffset:-16} }
+.anim-glow { animation: node-glow 1.2s ease-in-out infinite; }
+.anim-flow { animation: flow-dash .5s linear infinite; }
+
+@media (max-width: 980px) {
+  .tool-body { grid-template-columns: 1fr; }
+  .left-panel { max-height: 55vh; order: 2; }
+  .right-panel { order: 1; }
+  .lecture-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header class="top-header">
+  <div class="brand">
+    <span class="brand-diamond"></span>
+    <span class="brand-name">BSD 404 — Algorithms II</span>
+    <span class="brand-sep">/</span>
+    <span class="brand-course">Dr. Arash Kermani</span>
+  </div>
+  <nav class="part-nav">
+    <a class="part-link done" href="part1.html">Part 1 — FFT</a>
+    <a class="part-link active" href="part2.html">Part 2 — CRT &amp; RSA</a>
+    <a class="part-link" href="part3.html">Part 3 — Convex Hull</a>
+    <a class="part-link" href="part4.html">Part 4 — Set Cover</a>
+  </nav>
+</header>
+
+<!-- LECTURE STRIP -->
+<div class="lecture-strip" id="lectureStrip">
+  <button class="lecture-toggle" onclick="document.getElementById('lectureStrip').classList.toggle('open')">
+    <span>&#9632;</span> CLO-3 — Chinese Remainder Theorem &amp; RSA-CRT
+    <span class="lecture-toggle-arrow">&#9660;</span>
+  </button>
+  <div class="lecture-grid">
+    <div class="lec-card">
+      <div class="lec-card-title">Chinese Remainder Theorem</div>
+      <p>Given congruences x ≡ aᵢ (mod mᵢ) with pairwise coprime moduli, CRT guarantees a <strong>unique solution</strong> mod M = m₁·m₂·…·mₖ.</p>
+      <div class="concept-box">
+        <strong>Construction:</strong> M = ∏mᵢ, Mᵢ = M/mᵢ, yᵢ = Mᵢ⁻¹ mod mᵢ<br>
+        x = Σ aᵢ·Mᵢ·yᵢ (mod M)
+      </div>
+      <p>The modular inverse yᵢ is found with the Extended Euclidean Algorithm.</p>
+    </div>
+    <div class="lec-card">
+      <div class="lec-card-title">Extended Euclidean Algorithm</div>
+      <p>Finds integers s,t such that <strong>gcd(a,b) = s·a + t·b</strong>. When gcd = 1, s is the modular inverse of a mod b.</p>
+      <div class="lec-code">
+        <span class="kw">def</span> <span class="fn">extgcd</span>(a, b):<br>
+        &nbsp;&nbsp;<span class="kw">if</span> b == 0: <span class="kw">return</span> a, 1, 0<br>
+        &nbsp;&nbsp;g, s, t = extgcd(b, a%b)<br>
+        &nbsp;&nbsp;<span class="kw">return</span> g, t, s-(a//b)*t<br>
+        <span class="cm"># inv(a,m) = s when g=1</span>
+      </div>
+    </div>
+    <div class="lec-card">
+      <div class="lec-card-title">RSA-CRT Speedup</div>
+      <p>RSA decryption computes m = c^d mod n where n = p·q. CRT splits this into two smaller exponentiations:</p>
+      <div class="concept-box grn">
+        mₚ = c^(d mod p-1) mod p<br>
+        m_q = c^(d mod q-1) mod q<br>
+        Combine via CRT → m mod n
+      </div>
+      <p>Result: ~<strong>4× faster</strong> than direct computation via sub-problems of size ≈n/2.</p>
+    </div>
+  </div>
+</div>
+
+<div class="tool-body">
+  <!-- LEFT PANEL -->
+  <div class="left-panel">
+
+    <!-- Mode tabs -->
+    <div class="section">
+      <div class="section-header">Mode</div>
+      <div class="section-body">
+        <div class="mode-tabs">
+          <div class="mode-tab active" id="tabCRT" onclick="switchMode('crt')">CRT Solver</div>
+          <div class="mode-tab" id="tabRSA" onclick="switchMode('rsa')">RSA-CRT</div>
+        </div>
+
+        <!-- CRT inputs -->
+        <div id="modeCRT">
+          <label>Congruence System (aᵢ mod mᵢ)</label>
+          <div id="congRows"></div>
+          <div style="display:flex;gap:6px;margin-top:6px;">
+            <button class="ctrl-btn" onclick="addCongruence()" style="flex:0 0 auto;padding:7px 12px;">+ Add</button>
+            <button class="ctrl-btn" onclick="removeCongruence()" style="flex:0 0 auto;padding:7px 12px;">− Remove</button>
+          </div>
+          <div class="presets">
+            <div class="preset-btn" onclick="loadPreset(0)">Classic (3 mod)</div>
+            <div class="preset-btn" onclick="loadPreset(1)">Sun Tzu</div>
+            <div class="preset-btn" onclick="loadPreset(2)">2 Equations</div>
+            <div class="preset-btn" onclick="loadPreset(3)">4 Equations</div>
+          </div>
+        </div>
+
+        <!-- RSA inputs -->
+        <div id="modeRSA" style="display:none;">
+          <div class="input-row-2">
+            <div><label>Prime p</label><input type="number" id="rsa_p" value="61" min="2"></div>
+            <div><label>Prime q</label><input type="number" id="rsa_q" value="53" min="2"></div>
+          </div>
+          <div class="input-row-2">
+            <div><label>Public exp e</label><input type="number" id="rsa_e" value="17" min="2"></div>
+            <div><label>Ciphertext c</label><input type="number" id="rsa_c" value="2790" min="0"></div>
+          </div>
+          <div class="presets">
+            <div class="preset-btn" onclick="loadRSAPreset(0)">Small RSA</div>
+            <div class="preset-btn" onclick="loadRSAPreset(1)">Textbook</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Playback -->
+    <div class="section">
+      <div class="section-header">Playback</div>
+      <div class="section-body">
+        <div class="speed-row">
+          <span class="speed-label-txt">Speed</span>
+          <input type="range" id="speedSlider" min="1" max="10" value="5" oninput="updateSpeed(this.value)">
+          <span class="speed-val" id="speedVal">1.0×</span>
+        </div>
+        <div class="ctrl-row">
+          <button class="ctrl-btn primary" id="btnBuild" onclick="buildAndRun()">&#9654; Build</button>
+          <button class="ctrl-btn" id="btnStep"  onclick="stepOnce()" disabled>Step</button>
+          <button class="ctrl-btn" id="btnPlay"  onclick="playAnim()" disabled>Play</button>
+          <button class="ctrl-btn" id="btnPause" onclick="pauseAnim()" disabled>Pause</button>
+          <button class="ctrl-btn" id="btnReset" onclick="resetTool()" disabled>Reset</button>
+        </div>
+        <div class="status-row">
+          <span class="badge badge-idle" id="statusBadge">IDLE</span>
+          <span class="step-counter" id="stepCounter">— / —</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pseudocode -->
+    <div class="section">
+      <div class="section-header pur">Pseudocode</div>
+      <div class="section-body" style="padding:8px;">
+        <div class="pseudocode" id="pseudocode"></div>
+      </div>
+    </div>
+
+    <!-- Explanation -->
+    <div class="section">
+      <div class="section-header">Step Explanation</div>
+      <div class="section-body">
+        <div class="explanation" id="explanation">Press Build to start the animation.</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="section">
+      <div class="section-header grn">Live Statistics</div>
+      <div class="section-body">
+        <div class="stats-grid">
+          <div class="stat-box"><span class="stat-val" id="statM">—</span><span class="stat-lbl">M (product)</span></div>
+          <div class="stat-box"><span class="stat-val" id="statX">—</span><span class="stat-lbl">Solution x</span></div>
+          <div class="stat-box"><span class="stat-val" id="statEqs">—</span><span class="stat-lbl">Equations</span></div>
+          <div class="stat-box"><span class="stat-val" id="statOps">—</span><span class="stat-lbl">ExtGCD Calls</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- History -->
+    <div class="section">
+      <div class="section-header">Step History</div>
+      <div class="section-body" style="padding:8px;">
+        <div class="history-wrap">
+          <table class="history-table">
+            <thead><tr><th>#</th><th>Phase</th><th>Key Value</th></tr></thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Educational -->
+    <div class="section">
+      <button class="edu-toggle" id="eduToggle" onclick="toggleEdu()">
+        Why CRT Matters <span class="arrow">&#9660;</span>
+      </button>
+      <div class="edu-body" id="eduBody">
+        <h4>Uniqueness Guarantee</h4>
+        <p>When all moduli are pairwise coprime, CRT guarantees exactly one solution in [0, M). This is the foundation of residue number systems (RNS).</p>
+        <h4>RSA-CRT Performance</h4>
+        <p>Direct RSA decryption: one exponentiation mod n (1024+ bits). CRT splits it into two mod p and mod q (512 bits each). Since modular exponentiation is O(log²(n)) per multiply, we get roughly 4× speedup.</p>
+        <h4>Applications</h4>
+        <p>CRT appears in: RSA/smart-card crypto, error-correcting codes, fast integer arithmetic (NTT), secret sharing schemes, and calendar computations.</p>
+      </div>
+    </div>
+
+  </div><!-- end left-panel -->
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="viz-header">
+      <span class="viz-title" id="vizTitle">CRT — Step Visualization</span>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--acc)"></div>Active</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--grn)"></div>Solved</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--ylw)"></div>Intermediate</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--acc2)"></div>Result</div>
+      </div>
+    </div>
+    <div class="viz-area">
+      <svg class="canvas" id="mainSvg"></svg>
+    </div>
+    <div class="result-strip" id="resultStrip">
+      <span class="res-label">Solution</span>
+      <span id="resultVal" style="color:var(--txt3);font-size:11px;">Run the animation to see the result</span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   STATE
+   ============================================================ */
+let MODE = 'crt';
+let steps = [];
+let currentStep = -1;
+let animTimer = null;
+let animSpeed = 1.0;
+let extgcdCallCount = 0;
+
+/* ============================================================
+   CONGRUENCE ROWS (CRT mode)
+   ============================================================ */
+let congData = [
+  {a: 2, m: 3},
+  {a: 3, m: 5},
+  {a: 2, m: 7}
+];
+
+function renderCongRows() {
+  const wrap = document.getElementById('congRows');
+  wrap.innerHTML = '';
+  congData.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:grid;grid-template-columns:1fr 16px 1fr;gap:4px;align-items:center;margin-bottom:5px;';
+    row.innerHTML = `
+      <input type="number" value="${c.a}" min="0" oninput="congData[${i}].a=+this.value" placeholder="aᵢ" title="Remainder aᵢ">
+      <span style="text-align:center;color:var(--txt3);font-size:11px;">≡</span>
+      <input type="number" value="${c.m}" min="2" oninput="congData[${i}].m=+this.value" placeholder="mᵢ" title="Modulus mᵢ">
+    `;
+    wrap.appendChild(row);
+  });
+  const hint = document.createElement('div');
+  hint.style.cssText = 'display:grid;grid-template-columns:1fr 16px 1fr;gap:4px;margin-bottom:2px;';
+  hint.innerHTML = '<span style="text-align:center;font-size:8px;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;">remainder</span><span></span><span style="text-align:center;font-size:8px;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;">modulus</span>';
+  wrap.prepend(hint);
+}
+
+function addCongruence() {
+  congData.push({a: 1, m: 11});
+  renderCongRows();
+}
+
+function removeCongruence() {
+  if (congData.length > 2) { congData.pop(); renderCongRows(); }
+}
+
+const PRESETS = [
+  [{a:2,m:3},{a:3,m:5},{a:2,m:7}],
+  [{a:2,m:3},{a:3,m:5},{a:2,m:7}],  // Sun Tzu (same classic)
+  [{a:1,m:4},{a:3,m:7}],
+  [{a:1,m:3},{a:2,m:5},{a:3,m:7},{a:4,m:11}]
+];
+function loadPreset(i) {
+  congData = PRESETS[i].map(c => ({...c}));
+  renderCongRows();
+  document.querySelectorAll('#modeCRT .preset-btn').forEach((b,j)=>b.classList.toggle('active', j===i));
+}
+
+/* ============================================================
+   RSA PRESETS
+   ============================================================ */
+const RSA_PRESETS = [
+  {p:61, q:53, e:17, c:2790},
+  {p:11, q:13, e:7,  c:3}
+];
+function loadRSAPreset(i) {
+  const pr = RSA_PRESETS[i];
+  document.getElementById('rsa_p').value = pr.p;
+  document.getElementById('rsa_q').value = pr.q;
+  document.getElementById('rsa_e').value = pr.e;
+  document.getElementById('rsa_c').value = pr.c;
+  document.querySelectorAll('#modeRSA .preset-btn').forEach((b,j)=>b.classList.toggle('active', j===i));
+}
+
+/* ============================================================
+   MODE SWITCH
+   ============================================================ */
+function switchMode(m) {
+  MODE = m;
+  document.getElementById('modeCRT').style.display = m==='crt' ? '' : 'none';
+  document.getElementById('modeRSA').style.display = m==='rsa' ? '' : 'none';
+  document.getElementById('tabCRT').classList.toggle('active', m==='crt');
+  document.getElementById('tabRSA').classList.toggle('active', m==='rsa');
+  document.getElementById('vizTitle').textContent = m==='crt' ? 'CRT — Step Visualization' : 'RSA-CRT Decryption';
+  renderPseudocode();
+  resetTool();
+}
+
+/* ============================================================
+   MATH UTILITIES
+   ============================================================ */
+function extGCD(a, b) {
+  extgcdCallCount++;
+  if (b === 0n) return [a, 1n, 0n];
+  const [g, s, t] = extGCD(b, a % b);
+  return [g, t, s - (a / b) * t];
+}
+
+function modInverse(a, m) {
+  const [g, s] = extGCD(BigInt(a), BigInt(m));
+  if (g !== 1n) return null;
+  return ((s % BigInt(m)) + BigInt(m)) % BigInt(m);
+}
+
+function gcd(a, b) { return b === 0n ? a : gcd(b, a % b); }
+
+function modPow(base, exp, mod) {
+  base = BigInt(base); exp = BigInt(exp); mod = BigInt(mod);
+  let result = 1n;
+  base = base % mod;
+  while (exp > 0n) {
+    if (exp % 2n === 1n) result = (result * base) % mod;
+    exp = exp / 2n;
+    base = (base * base) % mod;
+  }
+  return result;
+}
+
+/* ============================================================
+   CRT STEP BUILDER
+   ============================================================ */
+function buildCRTSteps(equations) {
+  const steps = [];
+  const ais = equations.map(e => BigInt(e.a));
+  const mis = equations.map(e => BigInt(e.m));
+  const k = equations.length;
+
+  // Check coprimality
+  for (let i = 0; i < k; i++)
+    for (let j = i+1; j < k; j++)
+      if (gcd(mis[i], mis[j]) !== 1n) {
+        return [{phase:'ERROR', title:'Non-coprime moduli',
+          explain:`gcd(m${i+1}, m${j+1}) = ${gcd(mis[i],mis[j])} ≠ 1. CRT requires pairwise coprime moduli.`,
+          pcLines:[0], highlightEq: -1, vars:{}}];
+      }
+
+  const M = mis.reduce((acc, m) => acc * m, 1n);
+
+  steps.push({
+    phase:'SETUP', title:'Input System',
+    explain:`We have ${k} congruence${k>1?'s':''}: ${equations.map((e,i)=>`x ≡ ${e.a} (mod ${e.m})`).join(', ')}. CRT guarantees a unique solution mod M.`,
+    pcLines:[0,1], highlightEq: -1,
+    vars:{ M, solution: null, partials: [] }
+  });
+
+  steps.push({
+    phase:'COMPUTE_M', title:'Compute M = ∏mᵢ',
+    explain:`M = ${mis.join(' × ')} = ${M}. This is the product of all moduli. The solution will be unique in [0, ${M}).`,
+    pcLines:[2], highlightEq: -1,
+    vars:{ M, solution: null, partials: [] }
+  });
+
+  const Mis = mis.map(m => M / m);
+  const yis = [];
+  const partials = [];
+
+  for (let i = 0; i < k; i++) {
+    steps.push({
+      phase:'COMPUTE_Mi', title:`Compute M${i+1} = M / m${i+1}`,
+      explain:`M${i+1} = ${M} / ${mis[i]} = ${Mis[i]}. This is the product of all moduli except m${i+1}.`,
+      pcLines:[3], highlightEq: i,
+      vars:{ M, Mis: Mis.slice(0, i+1), yis: [...yis], solution: null, partials: [...partials] }
+    });
+
+    const yi = modInverse(Mis[i], mis[i]);
+    yis.push(yi);
+    extgcdCallCount++;
+
+    const extSteps = [];
+    {
+      let aa = Mis[i], bb = mis[i], depth = 0;
+      while (bb !== 0n && depth < 8) {
+        extSteps.push(`extGCD(${aa}, ${bb})`);
+        const tmp = bb;
+        bb = aa % bb;
+        aa = tmp;
+        depth++;
+      }
+    }
+
+    steps.push({
+      phase:'EXTGCD', title:`ExtGCD to find y${i+1} = M${i+1}⁻¹ mod m${i+1}`,
+      explain:`Calling extGCD(${Mis[i]}, ${mis[i]}) to find y${i+1} such that ${Mis[i]}·y${i+1} ≡ 1 (mod ${mis[i]}). Result: y${i+1} = ${yi}.`,
+      pcLines:[4,5], highlightEq: i,
+      vars:{ M, Mis: Mis.slice(0, i+1), yis: [...yis], solution: null, partials: [...partials], extCalls: extSteps }
+    });
+
+    const partial = ais[i] * Mis[i] * yi;
+    partials.push(partial);
+
+    steps.push({
+      phase:'PARTIAL', title:`Compute partial term a${i+1}·M${i+1}·y${i+1}`,
+      explain:`Partial term ${i+1}: ${ais[i]} × ${Mis[i]} × ${yi} = ${partial}. This term contributes only to congruence ${i+1}.`,
+      pcLines:[6], highlightEq: i,
+      vars:{ M, Mis: Mis.slice(0, i+1), yis: [...yis], solution: null, partials: [...partials] }
+    });
+  }
+
+  const rawSum = partials.reduce((s, p) => s + p, 0n);
+  const solution = ((rawSum % M) + M) % M;
+
+  steps.push({
+    phase:'SUM', title:'Sum all partial terms',
+    explain:`Sum = ${partials.join(' + ')} = ${rawSum}. Now reduce mod M = ${M}.`,
+    pcLines:[7], highlightEq: -1,
+    vars:{ M, Mis, yis, solution: null, partials, rawSum }
+  });
+
+  steps.push({
+    phase:'RESULT', title:'Final Solution x mod M',
+    explain:`x = ${rawSum} mod ${M} = ${solution}. Verify: ${equations.map((e,i)=>`${solution} mod ${mis[i]} = ${solution % mis[i]}`).join(', ')}.`,
+    pcLines:[8], highlightEq: -1,
+    vars:{ M, Mis, yis, solution, partials }
+  });
+
+  return steps;
+}
+
+/* ============================================================
+   RSA-CRT STEP BUILDER
+   ============================================================ */
+function buildRSASteps() {
+  const p = BigInt(document.getElementById('rsa_p').value);
+  const q = BigInt(document.getElementById('rsa_q').value);
+  const e = BigInt(document.getElementById('rsa_e').value);
+  const c = BigInt(document.getElementById('rsa_c').value);
+
+  const steps = [];
+  const n = p * q;
+  const phi = (p - 1n) * (q - 1n);
+
+  steps.push({
+    phase:'RSA_SETUP', title:'RSA Setup: n = p × q',
+    explain:`p = ${p}, q = ${q}, so n = ${p} × ${q} = ${n}. φ(n) = (${p}-1)(${q}-1) = ${phi}.`,
+    pcLines:[0,1],
+    rsa:{ p, q, n, phi, e, c, d:null, dp:null, dq:null, qInv:null, mp:null, mq:null, h:null, m:null }
+  });
+
+  const [g, s] = extGCD(e, phi);
+  const d = ((s % phi) + phi) % phi;
+
+  steps.push({
+    phase:'RSA_D', title:'Compute private key d = e⁻¹ mod φ(n)',
+    explain:`Using ExtGCD(${e}, ${phi}). Since gcd(${e}, ${phi}) = 1, the inverse exists. d = ${d}.`,
+    pcLines:[2],
+    rsa:{ p, q, n, phi, e, c, d, dp:null, dq:null, qInv:null, mp:null, mq:null, h:null, m:null }
+  });
+
+  const dp = d % (p - 1n);
+  const dq = d % (q - 1n);
+
+  steps.push({
+    phase:'RSA_DP_DQ', title:'Reduce exponents: dp, dq',
+    explain:`dp = d mod (p-1) = ${d} mod ${p-1n} = ${dp}. dq = d mod (q-1) = ${d} mod ${q-1n} = ${dq}. These are the reduced exponents for each sub-problem.`,
+    pcLines:[3,4],
+    rsa:{ p, q, n, phi, e, c, d, dp, dq, qInv:null, mp:null, mq:null, h:null, m:null }
+  });
+
+  steps.push({
+    phase:'RSA_DIRECT', title:'Direct RSA: m = c^d mod n',
+    explain:`For comparison: direct decryption = ${c}^${d} mod ${n}. This uses exponent of ~${d.toString().length} digits mod ${n.toString().length}-digit n. CRT avoids this.`,
+    pcLines:[5],
+    rsa:{ p, q, n, phi, e, c, d, dp, dq, qInv:null, mp:null, mq:null, h:null, m:null, directCost: `O(log(d)·log²(n))` }
+  });
+
+  const mp = modPow(c, dp, p);
+  steps.push({
+    phase:'RSA_MP', title:'CRT step 1: mₚ = c^dp mod p',
+    explain:`mₚ = ${c}^${dp} mod ${p} = ${mp}. This exponentiation is over ½-size modulus p=${p} — much faster than mod n.`,
+    pcLines:[6],
+    rsa:{ p, q, n, phi, e, c, d, dp, dq, qInv:null, mp, mq:null, h:null, m:null }
+  });
+
+  const mq = modPow(c, dq, q);
+  steps.push({
+    phase:'RSA_MQ', title:'CRT step 2: m_q = c^dq mod q',
+    explain:`m_q = ${c}^${dq} mod ${q} = ${mq}. Again, half-size modulus. Total cost so far: 2 × O(log(d/2)·log²(n/2)) ≈ ½ the direct cost.`,
+    pcLines:[7],
+    rsa:{ p, q, n, phi, e, c, d, dp, dq, qInv:null, mp, mq, h:null, m:null }
+  });
+
+  const qInv = modInverse(q, p);
+  const h = ((qInv * ((mp - mq + p) % p)) % p);
+  const m = mq + h * q;
+  const mFinal = m % n;
+
+  steps.push({
+    phase:'RSA_CRT_COMBINE', title:'Combine via CRT (Garner\'s formula)',
+    explain:`qInv = q⁻¹ mod p = ${qInv}. h = qInv·(mₚ - m_q) mod p = ${h}. m = m_q + h·q = ${mq} + ${h}·${q} = ${mFinal}.`,
+    pcLines:[8,9,10],
+    rsa:{ p, q, n, phi, e, c, d, dp, dq, qInv, mp, mq, h, m: mFinal }
+  });
+
+  steps.push({
+    phase:'RSA_DONE', title:'Decryption complete',
+    explain:`Plaintext m = ${mFinal}. Verify: ${mFinal}^${e} mod ${n} = ${modPow(mFinal, e, n)} (should equal c mod n = ${c % n}). CRT gave ~4× speedup.`,
+    pcLines:[11],
+    rsa:{ p, q, n, phi, e, c, d, dp, dq, qInv, mp, mq, h, m: mFinal }
+  });
+
+  return steps;
+}
+
+/* ============================================================
+   PSEUDOCODE RENDERER
+   ============================================================ */
+const CRT_PSEUDO = [
+  {n:'1',  c:'function CRT(a[], m[]):',                            tip:'Main CRT function. Arrays a and m are the remainders and coprime moduli.'},
+  {n:'2',  c:'  assert pairwise_coprime(m)',                       tip:'Required: all gcd(mᵢ, mⱼ) = 1 for i≠j.'},
+  {n:'3',  c:'  M ← m[1] × m[2] × … × m[k]',                    tip:'M is the product of all moduli. Solution is unique mod M.'},
+  {n:'4',  c:'  for i = 1 to k:  Mᵢ ← M / m[i]',                tip:'Mᵢ is M without the i-th factor. Satisfies Mᵢ mod m[i] = 0 only for j≠i.'},
+  {n:'5',  c:'    yᵢ ← extGCD(Mᵢ, m[i]).inverse',               tip:'Extended Euclid finds yᵢ such that Mᵢ·yᵢ ≡ 1 (mod m[i]).'},
+  {n:'6',  c:'    [recursive calls: extGCD(b, a mod b)]',         tip:'Each recursive call reduces the problem. Terminates when remainder = 0.'},
+  {n:'7',  c:'    termᵢ ← a[i] · Mᵢ · yᵢ',                     tip:'termᵢ ≡ a[i] (mod m[i]) and ≡ 0 (mod m[j]) for j≠i — isolates each equation.'},
+  {n:'8',  c:'  x ← (term₁ + term₂ + … + termₖ) mod M',         tip:'Sum picks up each aᵢ residue independently. Reduce mod M for canonical form.'},
+  {n:'9',  c:'  return x',                                         tip:'Unique solution in [0, M).'},
+];
+
+const RSA_PSEUDO = [
+  {n:'1',  c:'function RSA_CRT_Decrypt(c, p, q, e):',             tip:'c = ciphertext, p, q = prime factors of n, e = public exponent'},
+  {n:'2',  c:'  n ← p × q;  φ ← (p-1)(q-1)',                    tip:'n is the RSA modulus. φ(n) is Euler\'s totient.'},
+  {n:'3',  c:'  d ← e⁻¹ mod φ(n)   [via extGCD]',               tip:'Private key d: decryption exponent. Exists iff gcd(e, φ) = 1.'},
+  {n:'4',  c:'  dp ← d mod (p-1)',                                tip:'Reduced exponent for mod-p sub-problem. Fermat: c^(p-1) ≡ 1 (mod p).'},
+  {n:'5',  c:'  dq ← d mod (q-1)',                                tip:'Reduced exponent for mod-q sub-problem. Fermat: c^(q-1) ≡ 1 (mod q).'},
+  {n:'6',  c:'  // Direct: m = c^d mod n  [O(log²n) per mul]',   tip:'Naive approach: one big exponentiation. Shown for comparison only.'},
+  {n:'7',  c:'  mp ← c^dp mod p   [half-size!]',                 tip:'Modulus p ≈ √n. Cost is ¼ of mod-n operation. Applies Fermat\'s little theorem.'},
+  {n:'8',  c:'  mq ← c^dq mod q   [half-size!]',                 tip:'Same speedup. Total so far ≈ ½ direct cost.'},
+  {n:'9',  c:'  qInv ← q⁻¹ mod p  [extGCD]',                    tip:'Garner\'s algorithm coefficient. Precomputed and reused for same key.'},
+  {n:'10', c:'  h ← qInv · (mp - mq) mod p',                     tip:'Intermediate CRT combination step.'},
+  {n:'11', c:'  m ← mq + h · q',                                  tip:'Garner\'s formula: combines mp and mq. Equivalent to standard CRT combination.'},
+  {n:'12', c:'  return m mod n   // ~4× faster',                  tip:'Full speedup: two half-size exponentiations beat one full-size. Factor ≈ 4.'},
+];
+
+function renderPseudocode() {
+  const lines = MODE === 'crt' ? CRT_PSEUDO : RSA_PSEUDO;
+  const pc = document.getElementById('pseudocode');
+  pc.innerHTML = lines.map(({n, c, tip}) =>
+    `<div class="pc-line" data-line="${n}" ${tip?`data-tip="${tip.replace(/"/g,"'")}"`:''}><span class="pc-num">${n}</span><span class="pc-code">${c}</span></div>`
+  ).join('');
+}
+
+function highlightLines(lineNums) {
+  document.querySelectorAll('.pc-line').forEach(el => {
+    el.classList.toggle('active', lineNums.includes(+el.dataset.line));
+  });
+}
+
+/* ============================================================
+   APPLY STEP + DRAW
+   ============================================================ */
+function applyStep(idx) {
+  if (idx < 0 || idx >= steps.length) return;
+  currentStep = idx;
+  const s = steps[idx];
+
+  document.getElementById('explanation').textContent = s.explain || '';
+  highlightLines(s.pcLines || []);
+  document.getElementById('stepCounter').textContent = `${idx+1} / ${steps.length}`;
+
+  // Update stats
+  if (MODE === 'crt') {
+    const v = s.vars || {};
+    document.getElementById('statM').textContent = v.M != null ? v.M.toString() : '—';
+    document.getElementById('statX').textContent = v.solution != null ? v.solution.toString() : '—';
+    document.getElementById('statEqs').textContent = congData.length;
+    document.getElementById('statOps').textContent = extgcdCallCount;
+
+    if (v.solution != null) {
+      document.getElementById('resultVal').innerHTML = `<span class="res-val">x = ${v.solution}</span> <span style="color:var(--txt2);font-size:10px;">≡ solution mod ${v.M}</span>`;
+    }
+  } else {
+    const r = s.rsa || {};
+    document.getElementById('statM').textContent = r.n != null ? r.n.toString() : '—';
+    document.getElementById('statX').textContent = r.m != null ? r.m.toString() : '—';
+    document.getElementById('statEqs').textContent = '2';
+    document.getElementById('statOps').textContent = extgcdCallCount;
+
+    if (r.m != null) {
+      document.getElementById('resultVal').innerHTML = `<span class="res-val">m = ${r.m}</span> <span style="color:var(--txt2);font-size:10px;">decrypted from c = ${r.c}</span>`;
+    }
+  }
+
+  // Update history
+  const tbody = document.getElementById('historyBody');
+  const rows = tbody.querySelectorAll('tr');
+  rows.forEach((r, i) => r.classList.toggle('current', i === idx));
+  if (rows[idx]) rows[idx].scrollIntoView({block:'nearest'});
+
+  // Draw
+  if (MODE === 'crt') drawCRT(idx);
+  else drawRSA(idx);
+}
+
+/* ============================================================
+   CRT DRAWING
+   ============================================================ */
+function drawCRT(stepIdx) {
+  const svg = document.getElementById('mainSvg');
+  const W = svg.clientWidth || 800, H = svg.clientHeight || 500;
+  svg.innerHTML = '';
+  const s = steps[stepIdx];
+  if (!s) return;
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const mk = (tag, attrs) => {
+    const el = document.createElementNS(ns, tag);
+    Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k, v));
+    return el;
+  };
+  const txt = (x, y, text, opts={}) => {
+    const el = mk('text', {x, y, fill: opts.fill||'#8da3c4', 'font-size': opts.fs||11, 'text-anchor': opts.ta||'middle', 'font-family':'IBM Plex Mono,monospace', 'dominant-baseline':'middle', ...opts.extra||{}});
+    el.textContent = text;
+    svg.appendChild(el);
+    return el;
+  };
+
+  const k = congData.length;
+  const vars = s.vars || {};
+  const pad = 40;
+  const colW = (W - pad*2) / (k + 1);
+
+  // Background grid
+  for (let gx = 0; gx < W; gx += 40) {
+    const l = mk('line', {x1:gx, y1:0, x2:gx, y2:H, stroke:'rgba(31,46,80,.15)', 'stroke-width':1});
+    svg.appendChild(l);
+  }
+
+  // Title
+  txt(W/2, 24, `CRT Solution — Step: ${s.title}`, {fill:'#e2eaf8', fs:13, extra:{'font-weight':'700','font-family':'Inter,system-ui,sans-serif'}});
+
+  // Phase banner
+  const PHASE_COLORS = {SETUP:'#3da9fc', COMPUTE_M:'#f6b93b', COMPUTE_Mi:'#f0803c', EXTGCD:'#8b5cf6', PARTIAL:'#10d9a0', SUM:'#3da9fc', RESULT:'#10d9a0', ERROR:'#f0504a'};
+  const phaseCol = PHASE_COLORS[s.phase] || '#3da9fc';
+  const banner = mk('rect', {x:W/2-110, y:36, width:220, height:24, rx:5, fill:`${phaseCol}22`, stroke:phaseCol, 'stroke-width':1});
+  svg.appendChild(banner);
+  txt(W/2, 48, s.phase.replace(/_/g,' '), {fill:phaseCol, fs:9, extra:{'font-weight':'700','font-family':'Inter,sans-serif','letter-spacing':'2px'}});
+
+  // Equation columns
+  const eqY = 100;
+  const eqH = 60;
+  congData.forEach((eq, i) => {
+    const cx = pad + colW * (i + 0.5);
+    const active = s.highlightEq === i;
+    const hasPartial = vars.partials && vars.partials[i] != null;
+    const hasYi = vars.yis && vars.yis[i] != null;
+    const hasMi = vars.Mis && vars.Mis[i] != null;
+
+    // Equation box
+    const boxCol = active ? '#3da9fc' : (hasPartial ? '#10d9a0' : '#1f2e50');
+    const boxFill = active ? 'rgba(61,169,252,.15)' : (hasPartial ? 'rgba(16,217,160,.1)' : 'rgba(20,30,53,.8)');
+    const box = mk('rect', {x:cx-55, y:eqY-25, width:110, height:eqH, rx:8, fill:boxFill, stroke:boxCol, 'stroke-width': active?2:1});
+    svg.appendChild(box);
+    if (active) box.classList.add('anim-glow');
+    txt(cx, eqY-6, `x ≡ ${eq.a} (mod ${eq.m})`, {fill: active?'#3da9fc':(hasPartial?'#10d9a0':'#8da3c4'), fs:11});
+    txt(cx, eqY+14, `Eq ${i+1}`, {fill:'#4a6080', fs:9, extra:{'font-family':'Inter,sans-serif','font-weight':'600'}});
+
+    // Mi row
+    const miY = eqY + eqH + 20;
+    if (hasMi) {
+      svg.appendChild(mk('line', {x1:cx, y1:eqY+eqH/2, x2:cx, y2:miY-14, stroke:'#27395e', 'stroke-width':1.5, 'stroke-dasharray':'4 3'}));
+      const mib = mk('rect', {x:cx-52, y:miY-13, width:104, height:28, rx:5, fill:'rgba(246,185,59,.08)', stroke:'rgba(246,185,59,.3)', 'stroke-width':1});
+      svg.appendChild(mib);
+      txt(cx, miY+1, `M${i+1} = ${vars.Mis[i]}`, {fill:'#f6b93b', fs:10.5});
+    }
+
+    // Yi row
+    const yiY = eqY + eqH + 68;
+    if (hasYi) {
+      svg.appendChild(mk('line', {x1:cx, y1:miY+15, x2:cx, y2:yiY-14, stroke:'#27395e', 'stroke-width':1.5, 'stroke-dasharray':'4 3'}));
+      const yib = mk('rect', {x:cx-52, y:yiY-13, width:104, height:28, rx:5, fill:'rgba(139,92,246,.08)', stroke:'rgba(139,92,246,.3)', 'stroke-width':1});
+      svg.appendChild(yib);
+      txt(cx, yiY+1, `y${i+1} = ${vars.yis[i]}`, {fill:'#8b5cf6', fs:10.5});
+    }
+
+    // Partial term
+    const partY = eqY + eqH + 116;
+    if (hasPartial) {
+      svg.appendChild(mk('line', {x1:cx, y1:yiY+15, x2:cx, y2:partY-14, stroke:'#27395e', 'stroke-width':1.5, 'stroke-dasharray':'4 3'}));
+      const pb = mk('rect', {x:cx-52, y:partY-13, width:104, height:28, rx:5, fill:'rgba(16,217,160,.1)', stroke:'rgba(16,217,160,.3)', 'stroke-width':1});
+      svg.appendChild(pb);
+      const pv = vars.partials[i];
+      txt(cx, partY+1, `term = ${pv > 9999n ? pv.toString().slice(0,6)+'…' : pv}`, {fill:'#10d9a0', fs:10.5});
+    }
+  });
+
+  // M display top-right
+  if (vars.M != null) {
+    const mx = W - 160, my = 90;
+    const mb = mk('rect', {x:mx, y:my, width:148, height:52, rx:8, fill:'rgba(61,169,252,.07)', stroke:'rgba(61,169,252,.25)', 'stroke-width':1.5});
+    svg.appendChild(mb);
+    txt(mx+74, my+16, 'M (product)', {fill:'#4a6080', fs:8, extra:{'font-family':'Inter,sans-serif','font-weight':'700','letter-spacing':'1.5px'}});
+    txt(mx+74, my+34, vars.M.toString(), {fill:'#3da9fc', fs:15, extra:{'font-weight':'700'}});
+  }
+
+  // Solution display
+  if (vars.solution != null) {
+    const sx = W/2, sy = H - 70;
+    const sb = mk('rect', {x:sx-140, y:sy-24, width:280, height:52, rx:10, fill:'rgba(16,217,160,.12)', stroke:'rgba(16,217,160,.5)', 'stroke-width':2});
+    svg.appendChild(sb);
+    sb.classList.add('anim-glow');
+    txt(sx, sy-8, 'SOLUTION', {fill:'#10d9a0', fs:8, extra:{'font-family':'Inter,sans-serif','font-weight':'700','letter-spacing':'2px'}});
+    txt(sx, sy+14, `x = ${vars.solution}`, {fill:'#10d9a0', fs:18, extra:{'font-weight':'700'}});
+  }
+
+  // Sum display
+  if (vars.rawSum != null && vars.solution == null) {
+    const sx = W/2, sy = H - 70;
+    const sb = mk('rect', {x:sx-160, y:sy-24, width:320, height:52, rx:10, fill:'rgba(61,169,252,.07)', stroke:'rgba(61,169,252,.3)', 'stroke-width':1.5});
+    svg.appendChild(sb);
+    txt(sx, sy-8, 'SUM before reduction', {fill:'#3da9fc', fs:8, extra:{'font-family':'Inter,sans-serif','font-weight':'700','letter-spacing':'2px'}});
+    txt(sx, sy+14, `Σterms = ${vars.rawSum}`, {fill:'#3da9fc', fs:13, extra:{'font-weight':'700'}});
+  }
+}
+
+/* ============================================================
+   RSA DRAWING
+   ============================================================ */
+function drawRSA(stepIdx) {
+  const svg = document.getElementById('mainSvg');
+  const W = svg.clientWidth || 800, H = svg.clientHeight || 500;
+  svg.innerHTML = '';
+  const s = steps[stepIdx];
+  if (!s) return;
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const mk = (tag, attrs) => {
+    const el = document.createElementNS(ns, tag);
+    Object.entries(attrs).forEach(([k,v]) => el.setAttribute(k,v));
+    return el;
+  };
+  const txt = (x, y, text, opts={}) => {
+    const el = mk('text', {x, y, fill:opts.fill||'#8da3c4', 'font-size':opts.fs||11, 'text-anchor':opts.ta||'middle', 'font-family':'IBM Plex Mono,monospace', 'dominant-baseline':'middle'});
+    el.textContent = text;
+    svg.appendChild(el);
+    return el;
+  };
+
+  const r = s.rsa || {};
+  const PHASES = ['RSA_SETUP','RSA_D','RSA_DP_DQ','RSA_DIRECT','RSA_MP','RSA_MQ','RSA_CRT_COMBINE','RSA_DONE'];
+  const phaseIdx = PHASES.indexOf(s.phase);
+
+  // Background
+  for (let gx = 0; gx < W; gx += 40) svg.appendChild(mk('line', {x1:gx,y1:0,x2:gx,y2:H,stroke:'rgba(31,46,80,.15)','stroke-width':1}));
+
+  txt(W/2, 24, `RSA-CRT Decryption — ${s.title}`, {fill:'#e2eaf8', fs:13, extra:{'font-weight':'700','font-family':'Inter,sans-serif'}});
+
+  // Two-path diagram: Direct (top) vs CRT (bottom)
+  const leftX = 100, rightX = W - 100, midX = W/2;
+  const directY = H * 0.28, crtYp = H * 0.55, crtYq = H * 0.72;
+
+  // Input node
+  const inActive = phaseIdx <= 1;
+  const inBox = mk('rect', {x:midX-60, y:60, width:120, height:44, rx:8, fill: inActive?'rgba(61,169,252,.15)':'rgba(20,30,53,.9)', stroke: inActive?'#3da9fc':'#1f2e50', 'stroke-width':inActive?2:1});
+  svg.appendChild(inBox);
+  if (inActive) inBox.classList.add('anim-glow');
+  txt(midX, 76, 'Ciphertext c', {fill:inActive?'#3da9fc':'#8da3c4', fs:11});
+  txt(midX, 94, r.c != null ? `c = ${r.c}` : '—', {fill:inActive?'#3da9fc':'#4a6080', fs:10});
+
+  // Direct path label
+  txt(leftX + 60, directY - 30, 'Direct RSA', {fill:'#f0504a', fs:10, extra:{'font-weight':'700','font-family':'Inter,sans-serif'}});
+  const dirActive = s.phase === 'RSA_DIRECT';
+  const dirBox = mk('rect', {x:leftX-10, y:directY-20, width:160, height:44, rx:8, fill:dirActive?'rgba(240,80,74,.12)':'rgba(20,30,53,.6)', stroke:dirActive?'#f0504a':'#1f2e50', 'stroke-width':dirActive?2:1});
+  svg.appendChild(dirBox);
+  txt(leftX+70, directY-2, 'm = c^d mod n', {fill:dirActive?'#f0504a':'#4a6080', fs:10});
+  txt(leftX+70, directY+16, 'O(log²n) per mul', {fill:dirActive?'rgba(240,80,74,.7)':'#4a6080', fs:9});
+
+  // CRT path label
+  txt(rightX - 40, crtYp - 46, 'CRT Fast Path', {fill:'#10d9a0', fs:10, extra:{'font-weight':'700','font-family':'Inter,sans-serif'}});
+
+  // mod p box
+  const mpActive = s.phase === 'RSA_MP';
+  const mpDone = phaseIdx > 4;
+  const mpBox = mk('rect', {x:rightX-90, y:crtYp-20, width:170, height:46, rx:8, fill:mpActive?'rgba(61,169,252,.15)':mpDone?'rgba(16,217,160,.1)':'rgba(20,30,53,.8)', stroke:mpActive?'#3da9fc':mpDone?'#10d9a0':'#1f2e50', 'stroke-width':mpActive?2:1});
+  svg.appendChild(mpBox);
+  if (mpActive) mpBox.classList.add('anim-glow');
+  txt(rightX-5, crtYp-4, `c^dp mod p`, {fill:mpActive?'#3da9fc':mpDone?'#10d9a0':'#8da3c4', fs:10});
+  txt(rightX-5, crtYp+14, r.mp != null ? `mₚ = ${r.mp}` : (r.dp != null ? `dp=${r.dp}` : '—'), {fill:mpActive?'#3da9fc':mpDone?'#10d9a0':'#4a6080', fs:10});
+
+  // mod q box
+  const mqActive = s.phase === 'RSA_MQ';
+  const mqDone = phaseIdx > 5;
+  const mqBox = mk('rect', {x:rightX-90, y:crtYq-20, width:170, height:46, rx:8, fill:mqActive?'rgba(61,169,252,.15)':mqDone?'rgba(16,217,160,.1)':'rgba(20,30,53,.8)', stroke:mqActive?'#3da9fc':mqDone?'#10d9a0':'#1f2e50', 'stroke-width':mqActive?2:1});
+  svg.appendChild(mqBox);
+  if (mqActive) mqBox.classList.add('anim-glow');
+  txt(rightX-5, crtYq-4, `c^dq mod q`, {fill:mqActive?'#3da9fc':mqDone?'#10d9a0':'#8da3c4', fs:10});
+  txt(rightX-5, crtYq+14, r.mq != null ? `m_q = ${r.mq}` : (r.dq != null ? `dq=${r.dq}` : '—'), {fill:mqActive?'#3da9fc':mqDone?'#10d9a0':'#4a6080', fs:10});
+
+  // Combine box
+  const combActive = s.phase === 'RSA_CRT_COMBINE';
+  const combDone = phaseIdx > 6;
+  const combY = H * 0.88;
+  const combBox = mk('rect', {x:midX-90, y:combY-24, width:180, height:50, rx:8, fill:combActive?'rgba(139,92,246,.15)':combDone?'rgba(16,217,160,.12)':'rgba(20,30,53,.8)', stroke:combActive?'#8b5cf6':combDone?'#10d9a0':'#1f2e50', 'stroke-width':combActive||combDone?2:1});
+  svg.appendChild(combBox);
+  if (combActive || combDone) combBox.classList.add('anim-glow');
+  txt(midX, combY-6, 'CRT Combine (Garner)', {fill:combActive?'#8b5cf6':combDone?'#10d9a0':'#4a6080', fs:10, extra:{'font-weight':'600','font-family':'Inter,sans-serif'}});
+  txt(midX, combY+12, r.m != null ? `m = ${r.m}` : '—', {fill:combActive?'#8b5cf6':combDone?'#10d9a0':'#4a6080', fs:11, extra:{'font-weight':'700'}});
+
+  // Arrows from input
+  const arrowColor = '#27395e';
+  const arrowW = 1.5;
+  svg.appendChild(mk('line', {x1:midX-40, y1:104, x2:leftX+70, y2:directY-20, stroke:arrowColor, 'stroke-width':arrowW, 'stroke-dasharray':'5 4'}));
+  svg.appendChild(mk('line', {x1:midX+40, y1:104, x2:rightX-5, y2:crtYp-20, stroke:arrowColor, 'stroke-width':arrowW}));
+  svg.appendChild(mk('line', {x1:midX+40, y1:104, x2:rightX-5, y2:crtYq-20, stroke:arrowColor, 'stroke-width':arrowW}));
+
+  // Arrows to combine
+  if (phaseIdx >= 5) {
+    const lineCol = phaseIdx >= 6 ? '#10d9a0' : '#27395e';
+    svg.appendChild(mk('line', {x1:rightX-5, y1:crtYp+26, x2:midX+20, y2:combY-24, stroke:lineCol, 'stroke-width':arrowW}));
+    svg.appendChild(mk('line', {x1:rightX-5, y1:crtYq+26, x2:midX+20, y2:combY+26, stroke:lineCol, 'stroke-width':arrowW}));
+  }
+
+  // Key values sidebar
+  const kvX = 24;
+  const kvItems = [
+    {label:'n', val: r.n, col:'#3da9fc'},
+    {label:'d', val: r.d, col:'#f6b93b'},
+    {label:'dp', val: r.dp, col:'#f0803c'},
+    {label:'dq', val: r.dq, col:'#f0803c'},
+    {label:'qInv', val: r.qInv, col:'#8b5cf6'},
+  ];
+  let ky = 70;
+  kvItems.forEach(({label, val, col}) => {
+    if (val == null) return;
+    const kb = mk('rect', {x:kvX, y:ky, width:80, height:22, rx:4, fill:`${col}11`, stroke:`${col}44`, 'stroke-width':1});
+    svg.appendChild(kb);
+    txt(kvX+8, ky+11, `${label}=${val}`, {fill:col, fs:9.5, ta:'start'});
+    ky += 28;
+  });
+
+  // Speedup annotation
+  if (phaseIdx >= 4) {
+    const saX = W - 155, saY = H/2;
+    const sb2 = mk('rect', {x:saX, y:saY-40, width:148, height:84, rx:8, fill:'rgba(16,217,160,.06)', stroke:'rgba(16,217,160,.25)', 'stroke-width':1});
+    svg.appendChild(sb2);
+    txt(saX+74, saY-22, 'Speedup', {fill:'#10d9a0', fs:9, extra:{'font-weight':'700','font-family':'Inter,sans-serif','letter-spacing':'2px'}});
+    txt(saX+74, saY-2, '~4×', {fill:'#10d9a0', fs:22, extra:{'font-weight':'700'}});
+    txt(saX+74, saY+18, '2 × (n/2-size)', {fill:'#4a6080', fs:9});
+    txt(saX+74, saY+32, 'vs 1 × n-size', {fill:'#4a6080', fs:9});
+  }
+}
+
+/* ============================================================
+   BUILD + STEP ENGINE
+   ============================================================ */
+function buildAndRun() {
+  extgcdCallCount = 0;
+
+  if (MODE === 'crt') {
+    const eqs = congData.map(c => ({a: c.a, m: c.m}));
+    steps = buildCRTSteps(eqs);
+    document.getElementById('statEqs').textContent = eqs.length;
+  } else {
+    steps = buildRSASteps();
+    document.getElementById('statEqs').textContent = '2';
+  }
+
+  // Build history
+  const tbody = document.getElementById('historyBody');
+  tbody.innerHTML = '';
+  steps.forEach((s, i) => {
+    const tr = document.createElement('tr');
+    const keyVal = MODE === 'crt'
+      ? (s.vars?.solution != null ? `x=${s.vars.solution}` : s.vars?.M != null ? `M=${s.vars.M}` : '—')
+      : (s.rsa?.m != null ? `m=${s.rsa.m}` : s.rsa?.d != null ? `d=${s.rsa.d}` : '—');
+    tr.innerHTML = `<td>${i+1}</td><td>${s.phase.replace(/_/g,' ')}</td><td>${keyVal}</td>`;
+    tr.onclick = () => { pauseAnim(); applyStep(i); };
+    tbody.appendChild(tr);
+  });
+
+  currentStep = -1;
+  setBtns('ready');
+  setStatus('ready', 'READY');
+  applyStep(0);
+}
+
+function stepOnce() {
+  if (currentStep < steps.length - 1) {
+    applyStep(currentStep + 1);
+    if (currentStep === steps.length - 1) { setBtns('done'); setStatus('done', 'DONE'); }
+    else setStatus('paused', 'PAUSED');
+  }
+}
+
+function playAnim() {
+  if (currentStep >= steps.length - 1) applyStep(0);
+  setStatus('playing', 'PLAYING');
+  setBtns('playing');
+  const delay = Math.round(1200 / animSpeed);
+  animTimer = setInterval(() => {
+    if (currentStep >= steps.length - 1) {
+      pauseAnim();
+      setStatus('done', 'DONE');
+      setBtns('done');
+    } else {
+      applyStep(currentStep + 1);
+    }
+  }, delay);
+}
+
+function pauseAnim() {
+  clearInterval(animTimer); animTimer = null;
+  if (currentStep >= 0 && currentStep < steps.length - 1) {
+    setStatus('paused', 'PAUSED'); setBtns('paused');
+  }
+}
+
+function resetTool() {
+  pauseAnim();
+  steps = []; currentStep = -1;
+  document.getElementById('explanation').textContent = 'Press Build to start the animation.';
+  document.getElementById('stepCounter').textContent = '— / —';
+  document.getElementById('statM').textContent = '—';
+  document.getElementById('statX').textContent = '—';
+  document.getElementById('statEqs').textContent = '—';
+  document.getElementById('statOps').textContent = '—';
+  document.getElementById('resultVal').textContent = 'Run the animation to see the result';
+  document.getElementById('resultVal').style.color = 'var(--txt3)';
+  document.getElementById('historyBody').innerHTML = '';
+  document.getElementById('mainSvg').innerHTML = '';
+  highlightLines([]);
+  setBtns('idle'); setStatus('idle', 'IDLE');
+}
+
+function updateSpeed(v) {
+  animSpeed = parseFloat(v) / 5;
+  if (animSpeed < 0.1) animSpeed = 0.1;
+  document.getElementById('speedVal').textContent = animSpeed.toFixed(1) + '×';
+  if (animTimer) { pauseAnim(); playAnim(); }
+}
+
+function setStatus(cls, label) {
+  const el = document.getElementById('statusBadge');
+  el.className = `badge badge-${cls}`;
+  el.textContent = label;
+}
+
+function setBtns(state) {
+  const b = id => document.getElementById(id);
+  const states = {
+    idle:    {btnBuild:false, btnStep:true,  btnPlay:true,  btnPause:true,  btnReset:true},
+    ready:   {btnBuild:false, btnStep:false, btnPlay:false, btnPause:true,  btnReset:false},
+    playing: {btnBuild:true,  btnStep:true,  btnPlay:true,  btnPause:false, btnReset:false},
+    paused:  {btnBuild:false, btnStep:false, btnPlay:false, btnPause:true,  btnReset:false},
+    done:    {btnBuild:false, btnStep:true,  btnPlay:false, btnPause:true,  btnReset:false},
+  };
+  const s = states[state] || states.idle;
+  Object.entries(s).forEach(([id, dis]) => { b(id).disabled = dis; });
+}
+
+function toggleEdu() {
+  const t = document.getElementById('eduToggle');
+  const b = document.getElementById('eduBody');
+  t.classList.toggle('open');
+  b.classList.toggle('open');
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+renderCongRows();
+renderPseudocode();
+setBtns('idle');
+setStatus('idle', 'IDLE');
+
+// Draw placeholder
+(function() {
+  const svg = document.getElementById('mainSvg');
+  const ns = 'http://www.w3.org/2000/svg';
+  const ph = document.createElementNS(ns, 'text');
+  ph.setAttribute('x', '50%'); ph.setAttribute('y', '50%');
+  ph.setAttribute('text-anchor', 'middle'); ph.setAttribute('dominant-baseline', 'middle');
+  ph.setAttribute('fill', '#4a6080'); ph.setAttribute('font-size', '13');
+  ph.setAttribute('font-family', 'Inter,system-ui,sans-serif');
+  ph.textContent = 'Press Build to begin the step-by-step visualization';
+  svg.appendChild(ph);
+})();
+</script>
+</body>
+</html>
