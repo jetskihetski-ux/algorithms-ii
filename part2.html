@@ -288,7 +288,7 @@ input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(61,
   background: var(--bg0); border-left: 3px solid var(--acc);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   padding: 10px 12px; font-size: 11px; color: var(--txt2);
-  line-height: 1.7; min-height: 54px;
+  line-height: 1.75; min-height: 80px; max-height: 200px; overflow-y: auto;
 }
 
 .history-wrap { max-height: 150px; overflow-y: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
@@ -649,14 +649,16 @@ m = m_q + h · q<br>
       Deep Dive — Correctness Proof &amp; Applications <span class="arrow">&#9660;</span>
     </button>
     <div class="edu-body" id="eduBody">
-      <h4>Correctness of CRT Construction</h4>
-      <p>We claim x = Σ aᵢ·Mᵢ·yᵢ (mod M) satisfies all k congruences. For any fixed j, take x mod mⱼ: since mⱼ | Mᵢ for all i ≠ j, every term except term j vanishes. Term j contributes aⱼ·Mⱼ·yⱼ ≡ aⱼ·1 = aⱼ (mod mⱼ). ✓</p>
+      <h4>Correctness Proof (informal)</h4>
+      <p>We claim x = Σ aᵢ·Mᵢ·yᵢ (mod M) satisfies all k congruences. For any fixed j, take x mod mⱼ: since mⱼ | Mᵢ for all i ≠ j, every term except term j vanishes mod mⱼ. Term j contributes aⱼ · Mⱼ · yⱼ ≡ aⱼ · 1 = aⱼ (mod mⱼ), because Mⱼ·yⱼ ≡ 1 by construction. ✓</p>
       <h4>Uniqueness</h4>
-      <p>If x and x' both satisfy the system, then mᵢ | (x − x') for all i. Since the mᵢ are pairwise coprime, M = ∏mᵢ | (x − x'). So x ≡ x' (mod M) — unique in [0, M).</p>
-      <h4>RSA Security Note</h4>
-      <p>CRT-based RSA implementations must protect against <strong>fault attacks</strong>: if an attacker induces an error in mₚ or m_q, they can recover the private key by computing gcd(m_faulty − m_correct, n). Modern implementations use blinding and verification.</p>
-      <h4>Residue Number Systems</h4>
-      <p>CRT enables parallel arithmetic: represent a large integer x as its residues (x mod m₁, …, x mod mₖ). Addition, subtraction, and multiplication can all happen <em>component-wise</em> without carries — useful for high-performance computing and cryptographic hardware.</p>
+      <p>If x and x' both satisfy the system, then mᵢ | (x − x') for all i. Since the mᵢ are pairwise coprime, their product M divides (x − x'). So x ≡ x' (mod M) — the solution is unique inside [0, M).</p>
+      <h4>⚠ Common Misconception #1</h4>
+      <p>"You can use CRT with any moduli." — FALSE. The moduli MUST be pairwise coprime. If gcd(m₁, m₂) = d > 1, the system either has no solution (if a₁ ≢ a₂ mod d) or has multiple solutions mod M/d. CRT's uniqueness breaks down entirely.</p>
+      <h4>⚠ Common Misconception #2</h4>
+      <p>"RSA-CRT is just an optimization detail." — It is now a security requirement on constrained hardware. Smart cards and embedded devices cannot afford to skip it. But CRT also introduces fault attack vulnerability: a single bit flip in mₚ or m_q lets an attacker factor n by computing gcd(signature_faulty − signature_correct, n). Real implementations add randomized blinding before the CRT step.</p>
+      <h4>Residue Number Systems (RNS)</h4>
+      <p>CRT underpins Residue Number Systems: represent a large integer x as the tuple (x mod m₁, …, x mod mₖ). Addition and multiplication happen component-wise without inter-digit carries — ideal for parallel hardware and high-throughput cryptographic accelerators.</p>
     </div>
   </div>
 
@@ -758,62 +760,64 @@ function buildCRTSteps(eqs) {
 
   /* check coprimality */
   for (let i = 0; i < k; i++) for (let j = i+1; j < k; j++) {
-    if (gcd(mis[i], mis[j]) !== 1n)
-      return [{ ph:'ERROR', title:'Moduli not coprime',
-        ex:`gcd(m${i+1}=${mis[i]}, m${j+1}=${mis[j]}) = ${gcd(mis[i],mis[j])} ≠ 1. CRT requires pairwise coprime moduli. Try different values.`,
-        pc:[0], data:{} }];
+    if (gcd(mis[i], mis[j]) !== 1n) {
+      const g = gcd(mis[i], mis[j]);
+      return [{ ph:'ERROR', title:'Moduli not coprime — CRT cannot apply',
+        ex:`PRECONDITION FAILED: gcd(m${i+1}, m${j+1}) = gcd(${mis[i]}, ${mis[j]}) = ${g} ≠ 1. CRT requires every pair of moduli to be coprime. When moduli share a factor, the system may be inconsistent (no solution) or have multiple solutions in [0, M), destroying the uniqueness guarantee that CRT relies on. Fix: choose moduli like 3, 5, 7 (all prime → automatically pairwise coprime) or verify gcd(mᵢ, mⱼ) = 1 for all pairs.`,
+        pc:[2], data:{} }];
+    }
   }
 
   const M = mis.reduce((a,m)=>a*m, 1n);
   const Mis = mis.map(m => M/m);
   const yis = [], partials = [], traceData = [];
 
-  st.push({ ph:'INPUT', title:'Congruence System',
-    ex:`Input: ${eqs.map((e,i)=>`x ≡ ${e.a} (mod ${e.m})`).join(', ')}. All ${k} moduli are pairwise coprime — CRT applies. Unique solution exists in [0, M).`,
+  st.push({ ph:'INPUT', title:'Step 1 — Read the congruence system',
+    ex:`We are given ${k} simultaneous congruences: ${eqs.map((e,i)=>`x ≡ ${e.a} (mod ${e.m})`).join('; ')}. This means we want a single integer x that leaves remainder ${eqs[0].a} when divided by ${eqs[0].m}, remainder ${eqs[1].a} when divided by ${eqs[1].m}${k>2?`, and so on for all ${k} equations`:''}. Naively you could check every integer from 0 upward — but that could mean checking up to M = ${mis.reduce((a,m)=>a*m,1n)} values. CRT gives us the answer in O(k·log M) steps instead.`,
     pc:[1], data:{ M, step:'input', eqs } });
 
-  st.push({ ph:'COMPUTE_M', title:'M = product of all moduli',
-    ex:`M = ${mis.join(' × ')} = ${M}. Every valid solution is unique in [0, ${M}). If x is a solution, so is x + k·M for any integer k.`,
+  st.push({ ph:'COMPUTE_M', title:'Step 2 — Compute M, the master modulus',
+    ex:`M = ${mis.join(' × ')} = ${M}. This is the product of ALL moduli. CRT's uniqueness theorem says: provided the moduli are pairwise coprime, there is exactly ONE solution in the range [0, ${M}). Every other solution differs by a multiple of M — so x, x+${M}, x+${2n*M}, … are all solutions, but only x in [0, ${M}) is the canonical answer. Think of [0, M) as the "clock face" for this system — the solution is the unique position on it that satisfies all congruences simultaneously.`,
     pc:[2], data:{ M, step:'M' } });
 
   for (let i = 0; i < k; i++) {
-    st.push({ ph:'COMPUTE_Mi', title:`M${i+1} = M / m${i+1} = ${M} / ${mis[i]}`,
-      ex:`M${i+1} = ${M} / ${mis[i]} = ${Mis[i]}. Since m${i+1} does NOT divide M${i+1}, but mⱼ DOES divide M${i+1} for all j ≠ ${i+1}, term ${i+1} will "vanish" in all other congruences.`,
-      pc:[3], data:{ M, Mis: Mis.slice(0,i+1), yis:[...yis], partials:[...partials], activeEq:i, step:'Mi' } });
+    st.push({ ph:'COMPUTE_Mi', title:`Step 3.${i+1}a — Compute M${i+1} = M ÷ m${i+1}`,
+      ex:`M${i+1} = ${M} / ${mis[i]} = ${Mis[i]}. We divide M by the ${i+1}${['st','nd','rd'][i]||'th'} modulus to get a number divisible by every modulus EXCEPT m${i+1}. This is the key isolation trick: because every mⱼ (j ≠ ${i+1}) divides M${i+1}, the term we build from M${i+1} will be invisible (≡ 0) under every congruence except congruence ${i+1}. It is divisible by ${mis.filter((_,j)=>j!==i).join(' and ')}, but NOT by ${mis[i]} — that's exactly what we need.`,
+      pc:[4,5], data:{ M, Mis: Mis.slice(0,i+1), yis:[...yis], partials:[...partials], activeEq:i, step:'Mi' } });
 
     const trace = extGCDTrace(Mis[i], mis[i]);
     traceData.push(trace);
     gcdCalls += trace.length;
 
-    st.push({ ph:'EXTGCD', title:`ExtGCD(${Mis[i]}, ${mis[i]}) → y${i+1}`,
-      ex:`Running Extended Euclidean Algorithm to find y${i+1} = M${i+1}⁻¹ mod m${i+1}. We need ${Mis[i]}·y${i+1} ≡ 1 (mod ${mis[i]}). The algorithm back-substitutes Euclidean steps as Bézout coefficients.`,
-      pc:[4,5,6], data:{ M, Mis: Mis.slice(0,i+1), yis:[...yis], partials:[...partials], activeEq:i, step:'extgcd', trace, idx:i } });
+    st.push({ ph:'EXTGCD', title:`Step 3.${i+1}b — ExtGCD(${Mis[i]}, ${mis[i]}) to find the modular inverse`,
+      ex:`We need y${i+1} such that M${i+1} · y${i+1} ≡ 1 (mod m${i+1}), i.e. ${Mis[i]} · y${i+1} ≡ 1 (mod ${mis[i]}). The Extended Euclidean Algorithm finds integers s, t satisfying s·${Mis[i]} + t·${mis[i]} = gcd(${Mis[i]}, ${mis[i]}) = 1. Since gcd = 1 (because the moduli are coprime), s is our inverse. The table below shows each division step: we divide the larger number by the smaller, track the remainder, and propagate Bézout coefficients (s, t columns) backwards. Watch how each row reduces the problem until the remainder hits 0 — then we read y${i+1} from the final s value.`,
+      pc:[5,6,7], data:{ M, Mis: Mis.slice(0,i+1), yis:[...yis], partials:[...partials], activeEq:i, step:'extgcd', trace, idx:i } });
 
-    const yi = ((Mis[i] % mis[i] * (modInv(Mis[i], mis[i]) ?? 0n)) % mis[i] + mis[i]) % mis[i];
     const yiFinal = modInv(Mis[i], mis[i]) ?? 0n;
     yis.push(yiFinal);
 
-    st.push({ ph:'GOT_Yi', title:`y${i+1} = ${yiFinal} (inverse found)`,
-      ex:`y${i+1} = ${yiFinal}. Verify: ${Mis[i]} × ${yiFinal} = ${Mis[i]*yiFinal} ≡ ${(Mis[i]*yiFinal) % mis[i]} (mod ${mis[i]}) ✓. This inverse is the "correction factor" for equation ${i+1}.`,
-      pc:[6], data:{ M, Mis: Mis.slice(0,i+1), yis:[...yis], partials:[...partials], activeEq:i, step:'yi' } });
+    st.push({ ph:'GOT_Yi', title:`Step 3.${i+1}c — y${i+1} = ${yiFinal} confirmed`,
+      ex:`The Extended Euclidean Algorithm returns y${i+1} = ${yiFinal}. Double-check: ${Mis[i]} × ${yiFinal} = ${Mis[i]*yiFinal}. Dividing by ${mis[i]}: ${Mis[i]*yiFinal} = ${Mis[i]*yiFinal/mis[i]} × ${mis[i]} + ${(Mis[i]*yiFinal)%mis[i]}. The remainder is ${(Mis[i]*yiFinal)%mis[i]} — that's 1 ✓. Common misconception: the inverse exists ONLY because gcd(M${i+1}, m${i+1}) = 1. If the moduli were not coprime, this step would fail. The inverse y${i+1} acts as a "scaling factor" so that M${i+1}·y${i+1} behaves exactly like the number 1 inside the ring ℤ/m${i+1}ℤ.`,
+      pc:[7], data:{ M, Mis: Mis.slice(0,i+1), yis:[...yis], partials:[...partials], activeEq:i, step:'yi' } });
 
     const partial = ais[i] * Mis[i] * yiFinal;
     partials.push(partial);
 
-    st.push({ ph:'PARTIAL', title:`term${i+1} = a${i+1}·M${i+1}·y${i+1}`,
-      ex:`term${i+1} = ${ais[i]} × ${Mis[i]} × ${yiFinal} = ${partial}. Check: ${partial} mod ${mis[i]} = ${partial % mis[i]} (want ${ais[i]}) ✓ &  ${partial} mod ${mis[(i+1)%k]} = ${partial % mis[(i+1)%k]} (want 0 or aⱼ in other eqs) — each term is "blind" to all other moduli.`,
-      pc:[7], data:{ M, Mis: Mis.slice(0,i+1), yis:[...yis], partials:[...partials], activeEq:i, step:'partial' } });
+    const nextMod = mis[(i+1)%k];
+    st.push({ ph:'PARTIAL', title:`Step 3.${i+1}d — Build term${i+1} = a${i+1} · M${i+1} · y${i+1} = ${partial}`,
+      ex:`term${i+1} = ${ais[i]} × ${Mis[i]} × ${yiFinal} = ${partial}. Now verify the isolation property: ${partial} mod ${mis[i]} = ${partial%mis[i]} ✓ (equals a${i+1} = ${ais[i]}); and ${partial} mod ${nextMod} = ${partial%nextMod} (close to 0 mod ${nextMod}). This term "sees" only congruence ${i+1} — it contributes exactly aᵢ to that congruence and zero to all others. When we sum all k terms, each congruence picks up exactly its own aᵢ. This is the superposition principle behind CRT.`,
+      pc:[8], data:{ M, Mis: Mis.slice(0,i+1), yis:[...yis], partials:[...partials], activeEq:i, step:'partial' } });
   }
 
   const rawSum = partials.reduce((s,p)=>s+p, 0n);
-  st.push({ ph:'SUM', title:'Sum all partial terms',
-    ex:`x (before reduction) = ${partials.join(' + ')} = ${rawSum}. Now reduce mod M = ${M} to get the canonical solution in [0, ${M}).`,
-    pc:[8], data:{ M, Mis, yis, partials, rawSum, step:'sum' } });
+  st.push({ ph:'SUM', title:`Step 4 — Sum all ${k} partial terms`,
+    ex:`Adding all terms: ${partials.map((p,i)=>`term${i+1}=${p}`).join(' + ')} = ${rawSum}. This raw sum satisfies every congruence because each termᵢ contributes aᵢ to congruence i and 0 to the rest — the contributions add up independently. However, ${rawSum} may be larger than M = ${M}, so it is not yet the canonical solution. We reduce mod M in the next step to bring x into the unique range [0, ${M}).`,
+    pc:[9], data:{ M, Mis, yis, partials, rawSum, step:'sum' } });
 
   const solution = ((rawSum % M) + M) % M;
-  st.push({ ph:'RESULT', title:`x = ${solution} (unique solution mod ${M})`,
-    ex:`x = ${rawSum} mod ${M} = ${solution}. Verification: ${eqs.map((e,i)=>`${solution} mod ${mis[i]} = ${solution % mis[i]} ${solution%mis[i]===ais[i]?'✓':'✗'}`).join(', ')}.`,
-    pc:[9], data:{ M, Mis, yis, partials, rawSum, solution, step:'result', eqs } });
+  st.push({ ph:'RESULT', title:`Step 5 — Final answer: x = ${solution}`,
+    ex:`x = ${rawSum} mod ${M} = ${solution}. This is the UNIQUE solution in [0, ${M}). Full verification: ${eqs.map((e,i)=>`${solution} ÷ ${mis[i]} = ${solution/mis[i]} remainder ${solution%mis[i]} → x mod ${mis[i]} = ${solution%mis[i]} (need ${ais[i]}) ${solution%mis[i]===ais[i]?'✓':'✗'}`).join('; ')}. All ${k} congruences satisfied simultaneously. The next solution after x would be x + M = ${solution + M} — infinitely many solutions exist, but only one lies in [0, ${M}).`,
+    pc:[9,10], data:{ M, Mis, yis, partials, rawSum, solution, step:'result', eqs } });
 
   return st;
 }
@@ -829,50 +833,50 @@ function buildRSASteps() {
   const c = BigInt(document.getElementById('rc').value);
   const st = [], n = p*q, phi = (p-1n)*(q-1n);
 
-  st.push({ ph:'RSA_SETUP', title:'RSA Parameters: n = p × q',
-    ex:`p = ${p}, q = ${q}. RSA modulus n = ${p} × ${q} = ${n}. Euler's totient φ(n) = (p−1)(q−1) = ${p-1n} × ${q-1n} = ${phi}. The security of RSA rests on the hardness of factoring n.`,
+  st.push({ ph:'RSA_SETUP', title:'Step 1 — RSA key setup: n = p × q',
+    ex:`RSA uses two large secret primes p = ${p} and q = ${q}. Their product n = ${p} × ${q} = ${n} is the public modulus — anyone can see n, but factoring it back into p and q is computationally infeasible for large primes (the RSA problem). Euler's totient φ(n) = (p−1)(q−1) = ${p-1n} × ${q-1n} = ${phi} counts how many integers in [1, n) share no factor with n. φ(n) is secret — computing it requires knowing p and q. The public exponent e = ${e} is chosen coprime to φ(n) so that its inverse d exists.`,
     pc:[1,2], rsa:{p,q,n,phi,e,c} });
 
   const {g, s} = extGCD(e, phi); gcdCalls++;
   const d = ((s % phi) + phi) % phi;
-  st.push({ ph:'RSA_KEY', title:`Private key d = e⁻¹ mod φ(n) = ${d}`,
-    ex:`gcd(${e}, ${phi}) = ${g}. Since g = 1, the inverse exists. Using ExtGCD: d = ${d}. Verify: e·d = ${e} × ${d} = ${e*d}, and ${e*d} mod ${phi} = ${(e*d)%phi} ✓.`,
+  st.push({ ph:'RSA_KEY', title:`Step 2 — Compute private key d = e⁻¹ mod φ(n) = ${d}`,
+    ex:`We run ExtGCD(${e}, ${phi}) to find d such that e·d ≡ 1 (mod φ(n)). Result: d = ${d}. Sanity check: e·d = ${e} × ${d} = ${e*d} = ${e*d/phi}·${phi} + ${(e*d)%phi}, so (e·d) mod φ(n) = ${(e*d)%phi} ✓. Why does this work for decryption? RSA encryption: c = m^e mod n. Decryption: c^d = m^(e·d) mod n = m^(1 + k·φ(n)) = m · (m^φ(n))^k ≡ m · 1^k = m (mod n) — by Euler's theorem. So d is the "undo" exponent for e.`,
     pc:[3], rsa:{p,q,n,phi,e,c,d} });
 
   const dp = d % (p-1n), dq = d % (q-1n);
-  st.push({ ph:'RSA_REDUCE', title:`Reduce exponents: dp = d mod (p−1), dq = d mod (q−1)`,
-    ex:`dp = ${d} mod ${p-1n} = ${dp}. dq = ${d} mod ${q-1n} = ${dq}. By Fermat's little theorem: c^(p-1) ≡ 1 (mod p), so c^d ≡ c^(d mod p-1) (mod p). This dramatically reduces the exponent size.`,
+  st.push({ ph:'RSA_REDUCE', title:`Step 3 — Reduce exponents using Fermat's Little Theorem`,
+    ex:`Fermat's Little Theorem: for prime p and any a not divisible by p, a^(p−1) ≡ 1 (mod p). Therefore m^d = m^(d mod (p−1)) mod p — we can reduce the exponent! dp = d mod (p−1) = ${d} mod ${p-1n} = ${dp}. dq = d mod (q−1) = ${d} mod ${q-1n} = ${dq}. Instead of exponentiating with the full d (which has ${d.toString().length} digits), we now only need exponents dp = ${dp} and dq = ${dq} — far smaller numbers, dramatically fewer squarings. This is the core insight that makes CRT-RSA fast.`,
     pc:[4,5], rsa:{p,q,n,phi,e,c,d,dp,dq} });
 
-  st.push({ ph:'RSA_DIRECT', title:'Direct decryption (shown for comparison)',
-    ex:`Without CRT: m = c^d mod n = ${c}^${d} mod ${n}. The exponent d has ${d.toString().length} digits and n has ${n.toString().length} digits — every squaring step works with ~${n.toString().length}-digit numbers. CRT eliminates this.`,
+  st.push({ ph:'RSA_DIRECT', title:'Step 4 — Why direct decryption is slow (comparison)',
+    ex:`Without CRT: we compute m = c^d mod n = ${c}^${d} mod ${n} using binary exponentiation. Binary exponentiation performs ⌊log₂(d)⌋ ≈ ${Math.floor(Math.log2(Number(d)+1))} squarings, each squaring two numbers of size up to n = ${n}. Each multiplication of two k-bit numbers costs O(k²) operations. So the total cost scales as O(log(d) · log²(n)). With CRT, we replace ONE exponentiation mod n with TWO exponentiations mod p and mod q (half the bit-length). Halving the modulus reduces each multiplication cost by 4× — and we also need fewer squarings because dp and dq are smaller than d.`,
     pc:[6], rsa:{p,q,n,phi,e,c,d,dp,dq} });
 
   const mp = modPow(c, dp, p);
-  st.push({ ph:'RSA_MP', title:`mₚ = c^dp mod p = ${c}^${dp} mod ${p} = ${mp}`,
-    ex:`mₚ = ${mp}. Working mod p = ${p} (${p.toString().length} digits) instead of mod n = ${n} (${n.toString().length} digits). Each modular squaring costs O(log²p) ≈ ¼ the cost of O(log²n). We perform log₂(dp) = ${Math.ceil(Math.log2(Number(dp)+1))} squarings.`,
+  st.push({ ph:'RSA_MP', title:`Step 5 — Compute mₚ = c^dp mod p = ${mp}`,
+    ex:`mₚ = ${c}^${dp} mod ${p} = ${mp}. We work entirely in ℤ/pℤ — numbers stay in [0, ${p}), never growing beyond p = ${p}. This is the first of our two half-size sub-problems. The modular squarings here cost O(log²p) per step instead of O(log²n) — roughly ${Math.round(Number(n)/Number(p))}× cheaper per multiplication. Importantly, this result mₚ satisfies: mₚ ≡ m (mod p), where m is the true plaintext. We don't know m yet, but mₚ is the "shadow" of m in the ring mod p. The second sub-problem will compute m's shadow mod q.`,
     pc:[7], rsa:{p,q,n,phi,e,c,d,dp,dq,mp} });
 
   const mq = modPow(c, dq, q);
-  st.push({ ph:'RSA_MQ', title:`m_q = c^dq mod q = ${c}^${dq} mod ${q} = ${mq}`,
-    ex:`m_q = ${mq}. Again mod q = ${q} (half-size). Two half-size exponentiations together cost ≈ 2×(n/2)² /n² = ½ the direct cost — roughly <strong>4× speedup</strong> in total (since squarings also halve).`,
+  st.push({ ph:'RSA_MQ', title:`Step 6 — Compute m_q = c^dq mod q = ${mq}`,
+    ex:`m_q = ${c}^${dq} mod ${q} = ${mq}. Again working in ℤ/qℤ — numbers stay in [0, ${q}). This computation is independent of the mod-p step — on real multi-core hardware, both mₚ and m_q can be computed in PARALLEL, giving additional speedup beyond the theoretical 4×. Total cost so far: 2 exponentiations with ~half-size moduli and ~half-size exponents. Cost ratio vs. direct: 2 × (1/4) = 1/2 for squaring cost, plus fewer squarings due to smaller dp, dq — net result is approximately 4× faster. We now have the two "shadows" of m: mₚ = ${mp} mod ${p} and m_q = ${mq} mod ${q}. Next: combine them using CRT.`,
     pc:[8], rsa:{p,q,n,phi,e,c,d,dp,dq,mp,mq} });
 
   const {g:g2, s:s2} = extGCD(q, p); gcdCalls++;
   const qInv = ((s2 % p) + p) % p;
-  st.push({ ph:'RSA_QINV', title:`qInv = q⁻¹ mod p = ${q}⁻¹ mod ${p} = ${qInv}`,
-    ex:`ExtGCD(${q}, ${p}) gives qInv = ${qInv}. Verify: ${q} × ${qInv} mod ${p} = ${(q*qInv)%p} ✓. In practice, qInv is stored in the private key and computed only once per key generation.`,
+  st.push({ ph:'RSA_QINV', title:`Step 7 — Garner's coefficient: qInv = q⁻¹ mod p = ${qInv}`,
+    ex:`We need to combine mₚ and m_q via CRT. Garner's formula uses qInv = q⁻¹ mod p = ${qInv}. Verification: ${q} × ${qInv} = ${q*qInv} and ${q*qInv} mod ${p} = ${(q*qInv)%p} ✓. Unlike the standard CRT formula (which can produce huge intermediate values), Garner's formula keeps numbers small — h will be in [0, p) and the final m = m_q + h·q ≤ m_q + p·q < 2n, so no explicit mod n is needed. In real RSA implementations, qInv is precomputed when the private key is generated and stored as part of the key — it's never recomputed.`,
     pc:[9], rsa:{p,q,n,phi,e,c,d,dp,dq,mp,mq,qInv} });
 
   const diff = ((mp - mq) % p + p) % p;
   const h = (qInv * diff) % p;
-  st.push({ ph:'RSA_H', title:`Garner's h = qInv·(mₚ − m_q) mod p = ${h}`,
-    ex:`mₚ − m_q = ${mp} − ${mq} = ${mp-mq} ≡ ${diff} (mod ${p}). h = ${qInv} × ${diff} mod ${p} = ${h}. This h is the "lift" coefficient that adjusts m_q up to satisfy the mod-p congruence.`,
+  st.push({ ph:'RSA_H', title:`Step 8 — Garner's h = qInv · (mₚ − m_q) mod p = ${h}`,
+    ex:`mₚ − m_q = ${mp} − ${mq} = ${mp - mq}. Taking this mod p: ${mp-mq} mod ${p} = ${diff}. Multiply by qInv: h = ${qInv} × ${diff} mod ${p} = ${h}. What does h represent? It's the integer in [0, p) such that m_q + h·q satisfies BOTH congruences: (m_q + h·q) mod p = mₚ and (m_q + h·q) mod q = m_q. You can think of h as the "how many steps of size q do we need to take from m_q to reach a number that also equals mₚ mod p?" — it's the CRT lifting step.`,
     pc:[10], rsa:{p,q,n,phi,e,c,d,dp,dq,mp,mq,qInv,h} });
 
   const m = mq + h*q;
-  st.push({ ph:'RSA_DONE', title:`m = m_q + h·q = ${mq} + ${h}·${q} = ${m}`,
-    ex:`Plaintext m = ${m}. Verify encryption: m^e mod n = ${m}^${e} mod ${n} = ${modPow(m,e,n)} (should match c = ${c % n}): ${modPow(m,e,n) === c%n ? '✓ Correct!' : '⚠ Check inputs'}. Total ExtGCD calls: ${gcdCalls}.`,
+  st.push({ ph:'RSA_DONE', title:`Step 9 — Reconstruct plaintext: m = m_q + h·q = ${m}`,
+    ex:`m = ${mq} + ${h} × ${q} = ${mq} + ${h*q} = ${m}. This is Garner's formula — the result is guaranteed to be in [0, n) = [0, ${n}) without needing mod n. Full verification: m mod p = ${m} mod ${p} = ${m%p} (equals mₚ = ${mp}) ✓; m mod q = ${m} mod ${q} = ${m%q} (equals m_q = ${mq}) ✓. Re-encrypt to confirm: m^e mod n = ${m}^${e} mod ${n} = ${modPow(m,e,n)} vs original ciphertext c = ${c}: ${modPow(m,e,n) === c ? '✓ CORRECT — decryption verified!' : '⚠ Mismatch — check that c < n and inputs are valid'}. RSA-CRT required ${gcdCalls} ExtGCD calls total.`,
     pc:[11,12], rsa:{p,q,n,phi,e,c,d,dp,dq,mp,mq,qInv,h,m} });
 
   return st;
