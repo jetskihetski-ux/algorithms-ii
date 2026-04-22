@@ -3,1066 +3,1331 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>FFT: Polynomial Multiplication — BSD 404</title>
+<title>Part 1 — FFT: Polynomial Multiplication | BSD 404</title>
 <style>
-  :root {
-    --bg: #0d1117;
-    --surface: #161b22;
-    --surface2: #21262d;
-    --border: #30363d;
-    --text: #e6edf3;
-    --text-muted: #8b949e;
-    --accent: #58a6ff;
-    --green: #3fb950;
-    --orange: #d29922;
-    --red: #f85149;
-    --purple: #bc8cff;
-    --cyan: #39d353;
-    --yellow: #e3b341;
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.6; }
+/* ============================================================
+   DESIGN TOKENS
+   ============================================================ */
+:root {
+  --bg0: #0b0f1a;
+  --bg1: #0f1729;
+  --bg2: #141e35;
+  --bg3: #192340;
+  --bg4: #1e2a4a;
+  --border:  #1f2e50;
+  --border2: #27395e;
+  --txt:  #e2eaf8;
+  --txt2: #8da3c4;
+  --txt3: #4a6080;
+  --acc:  #3da9fc;
+  --acc2: #8b5cf6;
+  --grn:  #10d9a0;
+  --red:  #f0504a;
+  --ylw:  #f6b93b;
+  --org:  #f0803c;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 4px rgba(0,0,0,.35), 0 0 0 1px rgba(255,255,255,.03);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.45), 0 0 0 1px rgba(255,255,255,.04);
+  --glow-acc: 0 0 0 1px rgba(61,169,252,.25), 0 0 16px rgba(61,169,252,.08);
+}
 
-  /* ── HEADER ── */
-  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 18px 28px; }
-  .header h1 { font-size: 1.4rem; color: var(--accent); }
-  .header p { color: var(--text-muted); font-size: 0.85rem; margin-top: 3px; }
+/* ============================================================
+   RESET
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 13px; }
+body {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg0);
+  color: var(--txt);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  height: 100vh;
+}
 
-  /* ── LECTURE NOTES ── */
-  .lecture-section { max-width: 1100px; margin: 24px auto; padding: 0 20px; }
-  .lecture-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
-  .lecture-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; cursor: pointer; user-select: none; border-bottom: 1px solid var(--border); }
-  .lecture-header h2 { font-size: 1rem; color: var(--accent); }
-  .collapse-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
-  .lecture-body { padding: 20px; display: grid; gap: 20px; }
-  .lecture-body.hidden { display: none; }
+code, .pseudocode, .pc-code, .pc-num,
+input[type="text"], input[type="number"], textarea,
+.stat-val, .step-counter, .explanation, .history-table {
+  font-family: 'IBM Plex Mono', 'Cascadia Code', 'Fira Code', monospace;
+}
 
-  .roadmap { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
-  .roadmap a { background: var(--surface2); border: 1px solid var(--border); color: var(--accent); padding: 4px 12px; border-radius: 20px; text-decoration: none; font-size: 12px; }
-  .roadmap a:hover { border-color: var(--accent); }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg1); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
-  .lec-section { border-left: 3px solid var(--accent); padding-left: 16px; }
-  .lec-section h3 { color: var(--accent); font-size: 0.95rem; margin-bottom: 8px; }
-  .lec-section p { color: var(--text); margin-bottom: 8px; }
-  .lec-section ul { padding-left: 18px; color: var(--text); }
-  .lec-section ul li { margin-bottom: 4px; }
+/* ============================================================
+   TOP HEADER
+   ============================================================ */
+.top-header {
+  background: linear-gradient(90deg, #0d1427 0%, #0b1122 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  height: 50px;
+  flex-shrink: 0;
+  background-image:
+    linear-gradient(90deg, #0d1427 0%, #0b1122 100%),
+    repeating-linear-gradient(90deg, transparent, transparent 24px, rgba(255,255,255,.015) 24px, rgba(255,255,255,.015) 25px);
+  background-blend-mode: normal;
+}
 
-  .key-box { background: var(--surface2); border: 1px solid var(--purple); border-radius: 8px; padding: 14px 16px; }
-  .key-box h4 { color: var(--purple); margin-bottom: 8px; font-size: 0.88rem; text-transform: uppercase; letter-spacing: 0.5px; }
-  .key-box p, .key-box li { color: var(--text); font-size: 13px; }
-  .key-box ul { padding-left: 16px; }
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+}
+.brand-diamond {
+  width: 7px; height: 7px;
+  background: var(--acc);
+  transform: rotate(45deg);
+  box-shadow: 0 0 8px rgba(61,169,252,.6);
+  flex-shrink: 0;
+}
+.brand-name {
+  font-size: 12px; font-weight: 700;
+  color: var(--txt); letter-spacing: .2px;
+}
+.brand-sep {
+  color: var(--txt3); font-size: 11px;
+}
+.brand-course {
+  font-size: 11px; color: var(--txt3);
+}
 
-  .example-box { background: #0d1f0d; border: 1px solid var(--green); border-radius: 8px; padding: 14px 16px; }
-  .example-box h4 { color: var(--green); margin-bottom: 8px; font-size: 0.88rem; }
-  .example-box p, .example-box li { font-size: 13px; }
-  .example-box ul { padding-left: 16px; }
-  .example-box code { color: var(--yellow); font-family: monospace; }
+/* part navigation */
+.part-nav {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.part-link {
+  padding: 6px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: 11px; font-weight: 600;
+  color: var(--txt2);
+  text-decoration: none;
+  transition: all .18s;
+  cursor: pointer;
+  background: transparent;
+}
+.part-link:hover { border-color: var(--border); color: var(--txt); background: var(--bg3); }
+.part-link.active {
+  background: rgba(61,169,252,.12);
+  border-color: rgba(61,169,252,.3);
+  color: var(--acc);
+}
+.part-link.done {
+  color: var(--grn);
+  border-color: rgba(16,217,160,.2);
+  background: rgba(16,217,160,.06);
+}
 
-  .pseudo-display { background: #0a0e1a; border: 1px solid var(--border); border-radius: 8px; padding: 14px; font-family: 'Consolas', monospace; font-size: 12.5px; color: #cdd9e5; line-height: 1.8; }
-  .pseudo-display .kw { color: var(--purple); }
-  .pseudo-display .fn { color: var(--accent); }
-  .pseudo-display .cm { color: var(--text-muted); }
-  .pseudo-display .num { color: var(--orange); }
+/* ============================================================
+   LECTURE STRIP  (collapsible, above tool)
+   ============================================================ */
+.lecture-strip {
+  background: var(--bg1);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  max-height: 44px;
+  overflow: hidden;
+  transition: max-height .35s ease;
+}
+.lecture-strip.open { max-height: 500px; overflow-y: auto; }
 
-  /* ── TOOL SECTION ── */
-  .tool-section { max-width: 1400px; margin: 24px auto; padding: 0 20px 40px; }
-  .tool-section h2 { color: var(--accent); font-size: 1.1rem; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+.lecture-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  cursor: pointer;
+  user-select: none;
+  border: none;
+  background: none;
+  width: 100%;
+  color: var(--txt2);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  text-align: left;
+}
+.lecture-toggle:hover { color: var(--acc); }
+.lecture-toggle-arrow { margin-left: auto; font-size: 9px; transition: transform .2s; }
+.lecture-strip.open .lecture-toggle-arrow { transform: rotate(180deg); }
 
-  .tool-layout { display: grid; grid-template-columns: 420px 1fr; gap: 16px; }
-  @media (max-width: 980px) { .tool-layout { grid-template-columns: 1fr; } }
+.lecture-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  padding: 0 20px 18px;
+}
+.lec-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 13px 14px;
+}
+.lec-card-title {
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--acc); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.lec-card-title::before {
+  content: ''; display: inline-block;
+  width: 3px; height: 9px; border-radius: 2px;
+  background: var(--acc); flex-shrink: 0;
+}
+.lec-card p, .lec-card li {
+  font-size: 11px; color: var(--txt2); line-height: 1.75;
+}
+.lec-card ul { padding-left: 14px; }
+.concept-box {
+  background: rgba(61,169,252,.05);
+  border-left: 3px solid var(--acc);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 8px 11px; margin: 8px 0;
+  font-size: 10.5px; line-height: 1.65; color: var(--txt2);
+}
+.concept-box.grn { border-color: var(--grn); background: rgba(16,217,160,.05); }
+.concept-box.ylw { border-color: var(--ylw); background: rgba(246,185,59,.05); }
+.concept-box.pur { border-color: var(--acc2); background: rgba(139,92,246,.05); }
+.lec-code {
+  background: var(--bg0); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 9px 12px;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px;
+  color: var(--txt2); line-height: 1.85; margin: 8px 0;
+}
+.lec-code .kw { color: var(--acc2); }
+.lec-code .fn { color: var(--acc); }
+.lec-code .cm { color: var(--txt3); font-style: italic; }
 
-  /* ── LEFT PANEL ── */
-  .left-panel { display: flex; flex-direction: column; gap: 12px; }
-  .panel-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
-  .panel-card h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 10px; }
+/* ============================================================
+   TOOL BODY  —  two-column
+   ============================================================ */
+.tool-body {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
 
-  .algo-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 8px 10px; border-radius: 6px; font-size: 13px; }
-  .algo-select:focus { outline: none; border-color: var(--accent); }
+/* ============================================================
+   LEFT PANEL
+   ============================================================ */
+.left-panel {
+  background: var(--bg1);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 12px;
+}
 
-  .presets { display: flex; flex-wrap: wrap; gap: 6px; }
-  .preset-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-size: 12px; transition: all 0.2s; }
-  .preset-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .preset-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+.section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+}
+.section:focus-within { box-shadow: var(--glow-acc); }
 
-  label.field-label { display: block; color: var(--text-muted); font-size: 11px; margin-bottom: 4px; margin-top: 8px; }
-  input.text-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 7px 10px; border-radius: 6px; font-size: 13px; font-family: monospace; }
-  input.text-input:focus { outline: none; border-color: var(--accent); }
+.section-header {
+  padding: 9px 13px;
+  background: linear-gradient(90deg, var(--bg3) 0%, rgba(25,35,64,.6) 100%);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--txt3); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 7px;
+}
+.section-header::before {
+  content: ''; display: inline-block;
+  width: 3px; height: 10px; border-radius: 2px;
+  background: var(--acc); opacity: .6; flex-shrink: 0;
+}
+.section-header.grn::before { background: var(--grn); }
+.section-header.pur::before { background: var(--acc2); }
+.section-body { padding: 11px 12px; }
 
-  .speed-row { display: flex; align-items: center; gap: 10px; }
-  .speed-row input[type=range] { flex: 1; accent-color: var(--accent); }
-  .speed-label { color: var(--text-muted); font-size: 12px; min-width: 44px; }
+label {
+  display: block;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 9px; font-weight: 600;
+  color: var(--txt3); margin-bottom: 4px;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+input[type="text"], textarea, select {
+  width: 100%;
+  background: var(--bg0); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--txt); font-size: 11px; padding: 7px 10px;
+  outline: none; transition: border-color .18s, box-shadow .18s;
+}
+input:focus, textarea:focus { border-color: var(--acc); box-shadow: 0 0 0 3px rgba(61,169,252,.1); }
+textarea { resize: vertical; min-height: 52px; line-height: 1.6; }
 
-  .ctrl-buttons { display: flex; gap: 6px; flex-wrap: wrap; }
-  .btn { padding: 7px 14px; border-radius: 6px; border: 1px solid var(--border); cursor: pointer; font-size: 12.5px; font-weight: 600; transition: all 0.15s; }
-  .btn-primary { background: var(--accent); color: #000; border-color: var(--accent); }
-  .btn-primary:hover { background: #79b8ff; }
-  .btn-secondary { background: var(--surface2); color: var(--text); }
-  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
-  .btn-green { background: var(--green); color: #000; border-color: var(--green); }
-  .btn-green:hover { background: #56d364; }
-  .btn-red { background: #da3633; color: #fff; border-color: #da3633; }
-  .btn-red:hover { background: #f85149; }
-  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.presets {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 5px;
+  margin-top: 8px;
+}
+.preset-btn {
+  padding: 7px 8px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); color: var(--txt2);
+  cursor: pointer;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 10px; font-weight: 500; text-align: center;
+  transition: all .18s ease;
+}
+.preset-btn:hover { border-color: rgba(61,169,252,.4); color: var(--acc); background: rgba(61,169,252,.07); }
+.preset-btn:active { transform: scale(.98); }
+.preset-btn.active { border-color: rgba(61,169,252,.5); color: var(--acc); background: rgba(61,169,252,.1); }
 
-  .step-status { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; }
-  .step-counter { color: var(--text-muted); font-size: 12px; }
-  .status-badge { font-size: 11px; padding: 2px 10px; border-radius: 12px; font-weight: 600; }
-  .status-idle { background: #30363d; color: var(--text-muted); }
-  .status-ready { background: #1f4d2f; color: var(--green); }
-  .status-playing { background: #1a3a5c; color: var(--accent); }
-  .status-paused { background: #3d2e00; color: var(--orange); }
-  .status-done { background: #3d1a1a; color: var(--red); }
+.speed-row {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+}
+.speed-label-txt {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 9px; font-weight: 600; color: var(--txt3);
+  letter-spacing: 1px; text-transform: uppercase; flex-shrink: 0;
+}
+input[type="range"] {
+  -webkit-appearance: none; flex: 1; height: 3px;
+  border-radius: 2px; background: var(--border2);
+  outline: none; cursor: pointer;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--acc); cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(61,169,252,.2), 0 2px 6px rgba(0,0,0,.4);
+  transition: box-shadow .18s;
+}
+input[type="range"]:hover::-webkit-slider-thumb {
+  box-shadow: 0 0 0 4px rgba(61,169,252,.3), 0 2px 8px rgba(0,0,0,.5);
+}
+.speed-val { font-size: 11px; font-weight: 700; color: var(--acc); min-width: 34px; text-align: right; }
 
-  /* PSEUDOCODE PANEL */
-  .pseudo-panel { font-family: 'Consolas', monospace; font-size: 12px; line-height: 1.9; }
-  .pseudo-line { display: flex; gap: 10px; padding: 1px 4px; border-radius: 3px; cursor: default; transition: background 0.15s; }
-  .pseudo-line:hover { background: var(--surface2); }
-  .pseudo-line.active { background: #1f3a5c; border-left: 3px solid var(--accent); padding-left: 1px; }
-  .pseudo-line .ln { color: #444c56; min-width: 18px; text-align: right; user-select: none; }
-  .pseudo-line .code { color: #cdd9e5; }
-  .pseudo-line .code .kw { color: var(--purple); }
-  .pseudo-line .code .fn { color: var(--accent); }
-  .pseudo-line .code .cm { color: #6e7681; font-style: italic; }
-  .pseudo-line[title]:hover::after { content: attr(title); position: fixed; background: #1c2128; border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 6px; font-size: 11px; z-index: 1000; max-width: 260px; white-space: normal; pointer-events: none; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+.ctrl-row { display: flex; gap: 5px; }
+.ctrl-btn {
+  flex: 1; padding: 9px 4px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg3); color: var(--txt2);
+  cursor: pointer;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 10px; font-weight: 600; letter-spacing: .3px;
+  transition: all .18s ease;
+}
+.ctrl-btn:hover { border-color: rgba(61,169,252,.4); color: var(--acc); background: rgba(61,169,252,.07); }
+.ctrl-btn:active { transform: scale(.97); }
+.ctrl-btn.primary {
+  background: rgba(61,169,252,.12); border-color: rgba(61,169,252,.4);
+  color: var(--acc); box-shadow: inset 0 1px 0 rgba(61,169,252,.15);
+}
+.ctrl-btn.primary:hover { background: rgba(61,169,252,.18); }
+.ctrl-btn:disabled { opacity: .3; cursor: not-allowed; transform: none; }
 
-  /* STATS */
-  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .stat-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 10px; text-align: center; }
-  .stat-box .val { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
-  .stat-box .lbl { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.status-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0 2px;
+}
+.badge {
+  padding: 3px 10px; border-radius: 20px;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+}
+.badge-idle    { background: rgba(74,96,128,.18);  color: var(--txt3);  border: 1px solid rgba(74,96,128,.2); }
+.badge-ready   { background: rgba(61,169,252,.12); color: var(--acc);   border: 1px solid rgba(61,169,252,.25); }
+.badge-playing { background: rgba(16,217,160,.12); color: var(--grn);   border: 1px solid rgba(16,217,160,.25); }
+.badge-paused  { background: rgba(246,185,59,.12); color: var(--ylw);   border: 1px solid rgba(246,185,59,.25); }
+.badge-done    { background: rgba(139,92,246,.12); color: var(--acc2);  border: 1px solid rgba(139,92,246,.25); }
+.step-counter  { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--txt2); }
 
-  /* HISTORY */
-  .history-table-wrap { max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; }
-  .history-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
-  .history-table th { background: var(--surface2); color: var(--text-muted); padding: 5px 8px; text-align: left; position: sticky; top: 0; }
-  .history-table td { padding: 5px 8px; border-top: 1px solid #21262d; }
-  .history-table tr { cursor: pointer; }
-  .history-table tr:hover td { background: var(--surface2); }
-  .history-table tr.current td { background: #1f3a5c; color: var(--accent); }
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.stat-box {
+  background: var(--bg0); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 8px 10px;
+  text-align: center; position: relative; overflow: hidden;
+}
+.stat-box::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(61,169,252,.4), transparent);
+}
+.stat-val { font-size: 20px; font-weight: 700; color: var(--acc); display: block; line-height: 1.25; letter-spacing: -.5px; }
+.stat-lbl { font-family: 'Inter', system-ui, sans-serif; font-size: 8px; font-weight: 600; color: var(--txt3); text-transform: uppercase; letter-spacing: 1px; }
 
-  /* ── RIGHT PANEL ── */
-  .right-panel { display: flex; flex-direction: column; gap: 12px; }
-  .viz-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
-  .viz-card h3 { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 10px; }
+.pseudocode {
+  background: var(--bg0); border-radius: var(--radius-sm);
+  border: 1px solid var(--border); padding: 8px;
+  font-size: 10.5px; line-height: 1.9; overflow-x: auto;
+  max-height: 230px; overflow-y: auto;
+}
+.pc-line {
+  display: flex; gap: 10px; padding: 2px 6px;
+  border-radius: 4px; cursor: default;
+  white-space: pre; transition: background .15s; position: relative;
+}
+.pc-line:hover { background: rgba(61,169,252,.06); }
+.pc-line.active { background: rgba(61,169,252,.14); box-shadow: inset 3px 0 0 var(--acc); }
+.pc-num  { color: var(--txt3); min-width: 20px; text-align: right; user-select: none; }
+.pc-code { color: var(--txt2); }
+.pc-line.active .pc-code { color: var(--acc); }
+.pc-line[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute; left: calc(100% + 8px); top: 0;
+  background: var(--bg4); border: 1px solid var(--border2);
+  padding: 6px 10px; border-radius: var(--radius-sm);
+  font-size: 10px; font-family: 'Inter', system-ui, sans-serif;
+  color: var(--txt); white-space: normal; max-width: 210px;
+  z-index: 300; pointer-events: none; box-shadow: var(--shadow-md); line-height: 1.5;
+}
 
-  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
-  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-muted); }
-  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+.explanation {
+  background: var(--bg0); border-left: 3px solid var(--acc);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 10px 12px; font-size: 11px; color: var(--txt2);
+  line-height: 1.7; min-height: 54px;
+}
 
-  canvas, svg { display: block; border-radius: 6px; background: #0a0e1a; }
-  #mainSvg { width: 100%; height: 380px; }
-  #complexSvg { width: 100%; height: 220px; }
-  #comparisonSvg { width: 100%; height: 200px; }
+.history-wrap { max-height: 150px; overflow-y: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.history-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.history-table th {
+  background: var(--bg3); padding: 6px 8px; text-align: left;
+  color: var(--txt3); font-family: 'Inter', system-ui, sans-serif;
+  font-size: 8px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; position: sticky; top: 0;
+}
+.history-table td { padding: 4px 8px; border-bottom: 1px solid rgba(31,46,80,.6); color: var(--txt2); cursor: pointer; transition: background .12s; }
+.history-table tr:hover td { background: rgba(61,169,252,.06); color: var(--txt); }
+.history-table tr.current td { background: rgba(61,169,252,.1); color: var(--acc); }
 
-  .step-explain { background: var(--surface2); border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; padding: 10px 14px; font-size: 13px; color: var(--text); min-height: 52px; }
-  .step-explain .phase { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent); margin-bottom: 3px; }
+.edu-toggle {
+  width: 100%; background: linear-gradient(90deg, var(--bg3) 0%, rgba(25,35,64,.5) 100%);
+  border: none; border-bottom: 1px solid var(--border);
+  padding: 10px 13px; color: var(--txt2); cursor: pointer;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 9px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; text-align: left;
+  display: flex; justify-content: space-between; align-items: center;
+  transition: color .18s;
+}
+.edu-toggle:hover { color: var(--acc); }
+.edu-toggle .arrow { transition: transform .2s; font-size: 10px; }
+.edu-toggle.open .arrow { transform: rotate(180deg); }
+.edu-body { padding: 13px; font-family: 'Inter', system-ui, sans-serif; font-size: 11px; color: var(--txt2); line-height: 1.75; display: none; }
+.edu-body.open { display: block; }
+.edu-body h4 { font-size: 11px; font-weight: 700; color: var(--txt); margin: 11px 0 5px; }
 
-  .tip-box { background: #1c2128; border: 1px solid var(--orange); border-radius: 6px; padding: 10px 14px; font-size: 12px; color: var(--text-muted); }
-  .tip-box span { color: var(--orange); font-weight: 700; }
+/* complexity compare row */
+.cmp-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.cmp-box { background: var(--bg0); border-radius: var(--radius-sm); padding: 9px; text-align: center; }
+.cmp-box .cmp-lbl { font-size: 9px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; margin-bottom: 4px; }
+.cmp-box .cmp-val { font-size: 17px; font-weight: 700; }
 
-  /* complexity badge */
-  .complexity-row { display: flex; gap: 10px; flex-wrap: wrap; }
-  .complexity-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; text-align: center; }
-  .complexity-badge .val { font-size: 1rem; font-weight: 700; font-family: monospace; }
-  .complexity-badge .lbl { font-size: 10px; color: var(--text-muted); }
-  .complexity-badge.fft .val { color: var(--green); }
-  .complexity-badge.naive .val { color: var(--red); }
+/* ============================================================
+   RIGHT PANEL
+   ============================================================ */
+.right-panel {
+  display: flex; flex-direction: column;
+  background: var(--bg0); overflow: hidden;
+}
+.viz-header {
+  padding: 11px 20px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 14px;
+  background: linear-gradient(90deg, var(--bg1) 0%, rgba(15,23,41,.8) 100%);
+  flex-shrink: 0;
+}
+.viz-title { font-family: 'Inter', system-ui, sans-serif; font-size: 12px; font-weight: 700; color: var(--txt); }
+.legend { display: flex; gap: 12px; margin-left: auto; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-family: 'Inter', system-ui, sans-serif; font-size: 9px; font-weight: 500; color: var(--txt2); }
+.legend-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
+
+.viz-area { flex: 1; position: relative; overflow: hidden; }
+svg.canvas { width: 100%; height: 100%; display: block; }
+
+.viz-placeholder {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px; color: var(--txt3);
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 11px; letter-spacing: .5px;
+  pointer-events: none; user-select: none;
+}
+.viz-placeholder .ph-icon { font-size: 40px; opacity: .2; }
+.viz-placeholder .ph-text { text-align: center; line-height: 1.8; opacity: .45; }
+
+@keyframes pulse-op { 0%,100%{opacity:1}50%{opacity:.35} }
+@keyframes node-glow { 0%,100%{filter:drop-shadow(0 0 4px currentColor)}50%{filter:drop-shadow(0 0 14px currentColor)} }
+@keyframes flow-dash { to{stroke-dashoffset:-20} }
+.anim-glow  { animation: node-glow 1.5s ease-in-out infinite; }
+.anim-flow  { animation: flow-dash .4s linear infinite; }
+.viz-node   { transition: fill .2s, stroke .2s, opacity .2s; }
+
+/* poly result display */
+.poly-result {
+  background: var(--bg1); border-top: 1px solid var(--border);
+  padding: 10px 20px; font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px; flex-shrink: 0; min-height: 42px;
+  display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+}
+.poly-term { display: flex; align-items: center; gap: 6px; }
+.poly-label { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--txt3); }
+
+@media (max-width: 980px) {
+  .tool-body { grid-template-columns: 1fr; }
+  .left-panel { max-height: 55vh; order: 2; }
+  .right-panel { order: 1; }
+  .lecture-grid { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
 
-<div class="header">
-  <h1>Part 1 — FFT: Polynomial Multiplication</h1>
-  <p>BSD 404 — Algorithms II &nbsp;|&nbsp; Dr. Arash Kermani &nbsp;|&nbsp; Interactive Lecture Tool</p>
-</div>
+<!-- ============================================================
+     TOP HEADER
+     ============================================================ -->
+<header class="top-header">
+  <div class="brand">
+    <span class="brand-diamond"></span>
+    <span class="brand-name">BSD 404 — Algorithms II</span>
+  </div>
+  <nav class="part-nav">
+    <a class="part-link active" href="part1.html">Part 1 — FFT</a>
+    <a class="part-link" href="part2.html">Part 2 — CRT &amp; RSA</a>
+    <a class="part-link" href="part3.html">Part 3 — Convex Hull</a>
+    <a class="part-link" href="part4.html">Part 4 — Set Cover</a>
+  </nav>
+</header>
 
-<!-- ═══════════════ LECTURE NOTES ═══════════════ -->
-<div class="lecture-section">
-  <div class="lecture-card">
-    <div class="lecture-header" onclick="toggleLecture()">
-      <h2>📖 Full Lecture Notes — Click to Expand / Collapse</h2>
-      <button class="collapse-btn" id="collapseBtn">Expand</button>
+<!-- ============================================================
+     LECTURE STRIP  (collapsible)
+     ============================================================ -->
+<div class="lecture-strip" id="lectureStrip">
+  <button class="lecture-toggle" onclick="toggleLecture()">
+    <span>📖</span>
+    <span>Lecture Notes — FFT &amp; Polynomial Multiplication (CLO-2)</span>
+    <span class="lecture-toggle-arrow">▼</span>
+  </button>
+  <div class="lecture-grid">
+
+    <div class="lec-card">
+      <div class="lec-card-title">Why FFT?</div>
+      <p>Naïve polynomial multiplication: for each coefficient of A, multiply by every coefficient of B → <strong style="color:var(--red)">O(n²)</strong>.</p>
+      <p style="margin-top:7px">FFT exploits <em>roots of unity</em> to evaluate, multiply pointwise, then interpolate back → <strong style="color:var(--grn)">O(n log n)</strong>.</p>
+      <div class="concept-box">
+        <strong>3-Step Pipeline:</strong><br>
+        1. FFT(A) and FFT(B) — evaluate at roots of unity<br>
+        2. Pointwise: C[k] = A[k] × B[k] — O(n)<br>
+        3. IFFT(C) — interpolate back to coefficients
+      </div>
     </div>
-    <div class="lecture-body hidden" id="lectureBody">
 
-      <!-- Roadmap -->
-      <div>
-        <p style="color:var(--text-muted);font-size:12px;margin-bottom:8px;">Learning Roadmap:</p>
-        <div class="roadmap">
-          <a href="#sec1">1. Why FFT?</a>
-          <a href="#sec2">2. Polynomial Basics</a>
-          <a href="#sec3">3. DFT & Roots of Unity</a>
-          <a href="#sec4">4. Butterfly Network</a>
-          <a href="#sec5">5. FFT Algorithm</a>
-          <a href="#sec6">6. Inverse FFT</a>
-          <a href="#sec7">7. 3-Step Pipeline</a>
-          <a href="#sec8">8. Complexity</a>
-          <a href="#sec9">9. Worked Example</a>
-        </div>
+    <div class="lec-card">
+      <div class="lec-card-title">Roots of Unity &amp; Butterfly</div>
+      <p>Evaluate at the <em>n</em>-th roots of unity: ωₙᵏ = e^(2πik/n) for k = 0…n−1.</p>
+      <div class="concept-box grn" style="margin-top:8px">
+        <strong>Cancellation:</strong> ω^(k+n/2) = −ωᵏ → second half mirrors first half.<br>
+        <strong>Halving:</strong> (ωₙᵏ)² = ω_{n/2}^k → recursion halves the problem.
       </div>
+      <p style="margin-top:7px">Each butterfly: <code style="color:var(--acc);font-family:monospace">t = ω·b;  a' = a+t;  b' = a−t</code><br>
+      log₂(n) levels × n/2 butterflies = <strong style="color:var(--grn)">O(n log n)</strong>.</p>
+    </div>
 
-      <!-- Sec 1 -->
-      <div class="lec-section" id="sec1">
-        <h3>1. Why Fast Fourier Transform?</h3>
-        <p>Multiplying two degree-<em>n</em> polynomials naively takes <strong>O(n²)</strong> time — for each coefficient of A you multiply by every coefficient of B. This becomes prohibitively slow for large polynomials used in signal processing, image compression (JPEG), large integer arithmetic, and convolution in deep learning.</p>
-        <p>The FFT reduces this to <strong>O(n log n)</strong> by converting the problem from <em>coefficient representation</em> to <em>point-value representation</em>, where multiplication is trivially O(n), then converting back.</p>
-      </div>
-
-      <!-- Sec 2 -->
-      <div class="lec-section" id="sec2">
-        <h3>2. Polynomial Representations</h3>
-        <p>A polynomial of degree n−1 can be represented in two equivalent ways:</p>
-        <div class="key-box" style="margin-top:8px;">
-          <h4>Coefficient Representation</h4>
-          <p>A(x) = a₀ + a₁x + a₂x² + … + aₙ₋₁xⁿ⁻¹</p>
-          <p style="margin-top:6px;color:var(--text-muted)">Stored as array [a₀, a₁, …, aₙ₋₁]. Easy to add. Slow to multiply: O(n²).</p>
-        </div>
-        <div class="key-box" style="margin-top:8px;border-color:var(--green);">
-          <h4 style="color:var(--green);">Point-Value Representation</h4>
-          <p>A = {(x₀, y₀), (x₁, y₁), …, (xₙ₋₁, yₙ₋₁)} where yᵢ = A(xᵢ)</p>
-          <p style="margin-top:6px;color:var(--text-muted)">n+1 points uniquely determine a degree-n polynomial. Multiply pointwise: O(n).</p>
-        </div>
-        <p style="margin-top:10px;"><strong>Key insight:</strong> FFT is just a very fast way to convert between these two representations using special evaluation points.</p>
-      </div>
-
-      <!-- Sec 3 -->
-      <div class="lec-section" id="sec3">
-        <h3>3. DFT and Roots of Unity</h3>
-        <p>The Discrete Fourier Transform evaluates a polynomial at <strong>n-th roots of unity</strong>: the complex numbers ωₙᵏ = e^(2πik/n) for k = 0, 1, …, n−1.</p>
-        <div class="key-box" style="margin-top:8px;">
-          <h4>Why roots of unity?</h4>
-          <ul>
-            <li>They lie evenly spaced on the unit circle in the complex plane</li>
-            <li><strong>Cancellation property:</strong> ω₂ₙᵏ⁺ⁿ = −ω₂ₙᵏ — the second half is the negative of the first half</li>
-            <li><strong>Halving property:</strong> squaring the 2n-th roots gives the n-th roots, enabling recursion</li>
-            <li>These two properties are the mathematical engine of FFT</li>
-          </ul>
-        </div>
-        <p style="margin-top:10px;">The primitive n-th root of unity is <strong>ωₙ = e^(2πi/n)</strong>. For n=8: ω₈ = e^(iπ/4) = (√2/2) + (√2/2)i</p>
-      </div>
-
-      <!-- Sec 4 -->
-      <div class="lec-section" id="sec4">
-        <h3>4. The Butterfly Network</h3>
-        <p>The FFT computes DFT using a divide-and-conquer structure visualized as a <strong>butterfly network</strong>. Each "butterfly" is a 2-input, 2-output operation:</p>
-        <div class="pseudo-display">
-          <span class="cm">// Basic butterfly at twiddle factor ω:</span><br>
-          a' = a + ω·b<br>
-          b' = a − ω·b
-        </div>
-        <p style="margin-top:10px;">For n inputs, there are <strong>log₂(n) levels</strong>, each with <strong>n/2 butterflies</strong>. Total: (n/2)log₂(n) butterfly operations. Each butterfly is O(1), so total is <strong>O(n log n)</strong>.</p>
-        <div class="key-box" style="margin-top:8px;border-color:var(--orange);">
-          <h4 style="color:var(--orange);">Bit-Reversal Permutation</h4>
-          <p>Before the butterfly network, inputs are reordered by reversing the bits of their indices. For n=8: index 3 (binary 011) → reversed 110 = 6. This puts the even/odd recursion in natural order.</p>
-        </div>
-      </div>
-
-      <!-- Sec 5 -->
-      <div class="lec-section" id="sec5">
-        <h3>5. The FFT Algorithm (Cooley-Tukey)</h3>
-        <div class="pseudo-display">
-<span class="fn">FFT</span>(a[0..n-1]):                        <span class="cm">// n must be power of 2</span>
+    <div class="lec-card">
+      <div class="lec-card-title">Cooley-Tukey Algorithm</div>
+      <div class="lec-code">
+<span class="fn">FFT</span>(a[0..n-1]):
   <span class="kw">if</span> n == 1: <span class="kw">return</span> a
-  ω_n = e^(2πi/n)                       <span class="cm">// primitive n-th root of unity</span>
-  ω = 1
-  a_even = [a[0], a[2], a[4], …]        <span class="cm">// even-indexed coefficients</span>
-  a_odd  = [a[1], a[3], a[5], …]        <span class="cm">// odd-indexed coefficients</span>
-  y_even = <span class="fn">FFT</span>(a_even)                    <span class="cm">// recurse on n/2</span>
-  y_odd  = <span class="fn">FFT</span>(a_odd)                     <span class="cm">// recurse on n/2</span>
-  <span class="kw">for</span> k = 0 <span class="kw">to</span> n/2 − 1:
-    y[k]       = y_even[k] + ω · y_odd[k]  <span class="cm">// butterfly upper</span>
-    y[k + n/2] = y_even[k] − ω · y_odd[k]  <span class="cm">// butterfly lower</span>
-    ω = ω · ω_n                             <span class="cm">// advance twiddle factor</span>
-  <span class="kw">return</span> y
-        </div>
-        <p style="margin-top:10px;"><strong>Recurrence:</strong> T(n) = 2T(n/2) + Θ(n). By Master Theorem (Case 2): T(n) = <strong>Θ(n log n)</strong>.</p>
+  a_even = a[0,2,4,…]  <span class="cm">// divide</span>
+  a_odd  = a[1,3,5,…]
+  y_e = <span class="fn">FFT</span>(a_even)
+  y_o = <span class="fn">FFT</span>(a_odd)
+  ω_n = e^(2πi/n);  ω = 1
+  <span class="kw">for</span> k = 0 <span class="kw">to</span> n/2−1:
+    t        = ω · y_o[k]  <span class="cm">// twiddle</span>
+    y[k]     = y_e[k] + t  <span class="cm">// butterfly ↑</span>
+    y[k+n/2] = y_e[k] − t  <span class="cm">// butterfly ↓</span>
+    ω = ω · ω_n
       </div>
+      <p>Recurrence: T(n) = 2T(n/2) + Θ(n) → <strong style="color:var(--ylw)">Θ(n log n)</strong> by Master Theorem Case 2.</p>
+    </div>
 
-      <!-- Sec 6 -->
-      <div class="lec-section" id="sec6">
-        <h3>6. Inverse FFT (Interpolation)</h3>
-        <p>The inverse DFT converts point-values back to coefficients. Remarkably, it's almost identical to FFT:</p>
-        <div class="key-box" style="margin-top:8px;border-color:var(--cyan);">
-          <h4 style="color:var(--cyan);">IFFT = FFT with conjugate roots + divide by n</h4>
-          <p>Replace ωₙ with ωₙ⁻¹ = e^(−2πi/n) and divide every output by n.</p>
-          <p style="margin-top:6px;color:var(--text-muted)">This works because the DFT matrix is unitary (up to scaling): DFT⁻¹ = (1/n)·DFT*</p>
-        </div>
-      </div>
-
-      <!-- Sec 7 -->
-      <div class="lec-section" id="sec7">
-        <h3>7. The 3-Step Polynomial Multiplication Pipeline</h3>
-        <div class="key-box" style="border-color:var(--accent);">
-          <h4>Step 1 — Evaluate (FFT)</h4>
-          <p>Compute FFT(A) and FFT(B) — evaluate both polynomials at 2n roots of unity. Cost: <strong>O(n log n)</strong> each.</p>
-        </div>
-        <div class="key-box" style="margin-top:8px;border-color:var(--green);">
-          <h4 style="color:var(--green);">Step 2 — Pointwise Multiply</h4>
-          <p>C[k] = A[k] × B[k] for each k. Cost: <strong>O(n)</strong>.</p>
-        </div>
-        <div class="key-box" style="margin-top:8px;border-color:var(--orange);">
-          <h4 style="color:var(--orange);">Step 3 — Interpolate (IFFT)</h4>
-          <p>Apply IFFT to C to recover coefficient representation. Cost: <strong>O(n log n)</strong>.</p>
-        </div>
-        <p style="margin-top:10px;"><strong>Total: O(n log n)</strong> vs O(n²) naive — a dramatic speedup for large n.</p>
-      </div>
-
-      <!-- Sec 8 -->
-      <div class="lec-section" id="sec8">
-        <h3>8. Complexity Comparison</h3>
-        <div class="example-box">
-          <h4>Concrete Numbers</h4>
-          <ul>
-            <li>n = 1,000: Naive = 1,000,000 ops &nbsp;|&nbsp; FFT ≈ 10,000 ops &nbsp;→ <code>100× faster</code></li>
-            <li>n = 1,000,000: Naive = 10¹² ops &nbsp;|&nbsp; FFT ≈ 20,000,000 ops &nbsp;→ <code>50,000× faster</code></li>
-            <li>n = 10⁹: Naive = 10¹⁸ ops &nbsp;|&nbsp; FFT ≈ 3×10¹⁰ ops &nbsp;→ <code>33,000,000× faster</code></li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Sec 9 -->
-      <div class="lec-section" id="sec9">
-        <h3>9. Fully Worked Example</h3>
-        <div class="example-box">
-          <h4>A(x) = 1 + 2x, &nbsp; B(x) = 3 + 4x &nbsp; → &nbsp; C(x) = A·B = ?</h4>
-          <p><strong>Naive:</strong> C = (1)(3) + (1·4 + 2·3)x + (2)(4)x² = <code>3 + 10x + 8x²</code></p>
-          <br>
-          <p><strong>Via FFT (n=4 points):</strong></p>
-          <ul>
-            <li>Pad: A = [1,2,0,0], B = [3,4,0,0]</li>
-            <li>Roots: ω₄⁰=1, ω₄¹=i, ω₄²=−1, ω₄³=−i</li>
-            <li>FFT(A) = [3, 1−2i, −1, 1+2i]</li>
-            <li>FFT(B) = [7, 3−4i, −1, 3+4i]</li>
-            <li>Pointwise: [21, (1−2i)(3−4i), 1, (1+2i)(3+4i)] = [21, −5−10i, 1, −5+10i]</li>
-            <li>IFFT → [3, 10, 8, 0] → <code>C(x) = 3 + 10x + 8x²  ✓</code></li>
-          </ul>
-        </div>
-      </div>
-
-    </div><!-- end lecture-body -->
   </div>
 </div>
 
-<!-- ═══════════════ INTERACTIVE TOOL ═══════════════ -->
-<div class="tool-section">
-  <h2>🔬 Interactive Visualization Tool</h2>
-  <div class="tip-box" style="margin-bottom:14px;">
-    <span>Tip:</span> Click <strong>Build Steps</strong> after choosing a preset or entering custom polynomials. Use <strong>Step</strong> for line-by-line teaching mode. Watch the butterfly network animate at each FFT level.
-  </div>
+<!-- ============================================================
+     TOOL BODY
+     ============================================================ -->
+<div class="tool-body">
 
-  <div class="tool-layout">
+  <!-- ======== LEFT PANEL ======== -->
+  <div class="left-panel">
 
-    <!-- ══ LEFT PANEL ══ -->
-    <div class="left-panel">
-
-      <!-- Algorithm Info -->
-      <div class="panel-card">
-        <h3>Algorithm</h3>
-        <select class="algo-select" id="algoSelect">
-          <option value="fft">FFT: Polynomial Multiplication (Cooley-Tukey)</option>
-        </select>
-        <div class="complexity-row" style="margin-top:10px;">
-          <div class="complexity-badge fft">
-            <div class="val">O(n log n)</div>
-            <div class="lbl">FFT Multiplication</div>
-          </div>
-          <div class="complexity-badge naive">
-            <div class="val">O(n²)</div>
-            <div class="lbl">Naive Multiplication</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Presets -->
-      <div class="panel-card">
-        <h3>Quick Examples</h3>
+    <!-- Input -->
+    <div class="section">
+      <div class="section-header">Polynomial Input</div>
+      <div class="section-body">
+        <label>Polynomial A — coefficients a₀, a₁, a₂, … (low to high degree)</label>
+        <input type="text" id="polyA" value="1,2,3,4">
+        <small style="font-size:9px;color:var(--txt3)">"1,2,3" represents 1 + 2x + 3x²</small>
+        <label style="margin-top:9px">Polynomial B — coefficients b₀, b₁, b₂, …</label>
+        <input type="text" id="polyB" value="1,1,1,1">
         <div class="presets">
-          <button class="preset-btn active" onclick="loadPreset(0)">Linear × Linear</button>
-          <button class="preset-btn" onclick="loadPreset(1)">Quadratic × Linear</button>
-          <button class="preset-btn" onclick="loadPreset(2)">Quadratic × Quadratic</button>
-          <button class="preset-btn" onclick="loadPreset(3)">Cubic × Cubic</button>
+          <button class="preset-btn active" id="pr0" onclick="loadPreset(0)">Simple (deg 3)</button>
+          <button class="preset-btn" id="pr1" onclick="loadPreset(1)">Quadratic × Lin</button>
+          <button class="preset-btn" id="pr2" onclick="loadPreset(2)">Powers of 2</button>
+          <button class="preset-btn" id="pr3" onclick="loadPreset(3)">Alternating</button>
         </div>
       </div>
+    </div>
 
-      <!-- Custom Input -->
-      <div class="panel-card">
-        <h3>Custom Input</h3>
-        <label class="field-label">Polynomial A — coefficients a₀,a₁,a₂,… (comma-separated)</label>
-        <input class="text-input" id="polyA" value="1,2" placeholder="e.g. 1,2,3">
-        <label class="field-label">Polynomial B — coefficients b₀,b₁,b₂,… (comma-separated)</label>
-        <input class="text-input" id="polyB" value="3,4" placeholder="e.g. 3,4,5">
+    <!-- Complexity Compare -->
+    <div class="section">
+      <div class="section-header pur">Complexity Comparison</div>
+      <div class="section-body">
+        <div class="cmp-row">
+          <div class="cmp-box" style="border:1px solid var(--red)">
+            <div class="cmp-lbl" style="color:var(--red)">Naïve O(n²)</div>
+            <div class="cmp-val" style="color:var(--red)" id="naiveOpsDisplay">— ops</div>
+          </div>
+          <div class="cmp-box" style="border:1px solid var(--grn)">
+            <div class="cmp-lbl" style="color:var(--grn)">FFT O(n log n)</div>
+            <div class="cmp-val" style="color:var(--grn)" id="fftOpsDisplay">— ops</div>
+          </div>
+        </div>
+        <div class="concept-box pur" style="font-size:10.5px">
+          FFT evaluates at cleverly chosen points (roots of unity) so the divide-and-conquer recursion collapses from O(n²) to O(n log n).
+        </div>
       </div>
+    </div>
 
-      <!-- Speed -->
-      <div class="panel-card">
-        <h3>Playback Speed</h3>
+    <!-- Playback Controls -->
+    <div class="section">
+      <div class="section-header">Playback Controls</div>
+      <div class="section-body">
         <div class="speed-row">
-          <span style="font-size:11px;color:var(--text-muted)">0.25×</span>
-          <input type="range" id="speedSlider" min="0.25" max="4" step="0.25" value="1">
-          <span style="font-size:11px;color:var(--text-muted)">4×</span>
-          <span class="speed-label" id="speedLabel">1.00×</span>
+          <span class="speed-label-txt">Speed</span>
+          <input type="range" id="speedSlider" min="0.25" max="4" step="0.25" value="1"
+                 oninput="document.getElementById('speedVal').textContent=parseFloat(this.value).toFixed(2)+'x'">
+          <span class="speed-val" id="speedVal">1.00x</span>
         </div>
-      </div>
-
-      <!-- Controls -->
-      <div class="panel-card">
-        <h3>Playback Controls</h3>
-        <div class="ctrl-buttons">
-          <button class="btn btn-primary" id="btnBuild" onclick="buildSteps()">Build Steps</button>
-          <button class="btn btn-secondary" id="btnStep" onclick="stepOnce()" disabled>Step</button>
-          <button class="btn btn-green" id="btnPlay" onclick="playAnim()" disabled>Play</button>
-          <button class="btn btn-secondary" id="btnPause" onclick="pauseAnim()" disabled>Pause</button>
-          <button class="btn btn-red" id="btnReset" onclick="resetTool()">Reset</button>
+        <div class="ctrl-row">
+          <button class="ctrl-btn primary" onclick="buildSteps()">Build Steps</button>
+          <button class="ctrl-btn" id="btnStep" onclick="stepOnce()" disabled>Step</button>
+          <button class="ctrl-btn" id="btnPlay" onclick="playAnim()" disabled>Play</button>
+          <button class="ctrl-btn" id="btnPause" onclick="pauseAnim()" disabled>Pause</button>
+          <button class="ctrl-btn" onclick="resetTool()">Reset</button>
         </div>
-        <div class="step-status">
+        <div class="status-row">
+          <span class="badge badge-idle" id="statusBadge">Idle</span>
           <span class="step-counter" id="stepCounter">Step 0 / 0</span>
-          <span class="status-badge status-idle" id="statusBadge">Idle</span>
         </div>
       </div>
+    </div>
 
-      <!-- Pseudocode -->
-      <div class="panel-card">
-        <h3>Pseudocode — Hover for explanation</h3>
-        <div class="pseudo-panel" id="pseudoPanel">
-          <!-- filled by JS -->
-        </div>
+    <!-- Pseudocode -->
+    <div class="section">
+      <div class="section-header">Pseudocode — Hover lines for explanation</div>
+      <div class="pseudocode" id="pseudoPanel"></div>
+    </div>
+
+    <!-- Step Explanation -->
+    <div class="section">
+      <div class="section-header">Step Explanation</div>
+      <div class="explanation" id="stepExplain">
+        Enter two polynomials and press <strong>Build Steps</strong> to begin.
       </div>
+    </div>
 
-      <!-- Stats -->
-      <div class="panel-card">
-        <h3>Operation Counters</h3>
+    <!-- Stats -->
+    <div class="section">
+      <div class="section-header grn">Live Statistics</div>
+      <div class="section-body">
         <div class="stats-grid">
-          <div class="stat-box"><div class="val" id="statButterflies">0</div><div class="lbl">Butterflies</div></div>
-          <div class="stat-box"><div class="val" id="statMults">0</div><div class="lbl">Pointwise ×</div></div>
-          <div class="stat-box"><div class="val" id="statLevels">0</div><div class="lbl">FFT Levels</div></div>
-          <div class="stat-box"><div class="val" id="statSpeedup">—</div><div class="lbl">Speedup vs O(n²)</div></div>
+          <div class="stat-box"><span class="stat-val" id="statButterflies">0</span><span class="stat-lbl">Butterflies</span></div>
+          <div class="stat-box"><span class="stat-val" id="statMults">0</span><span class="stat-lbl">Pointwise ×</span></div>
+          <div class="stat-box"><span class="stat-val" id="statLevels">0</span><span class="stat-lbl">FFT Levels</span></div>
+          <div class="stat-box"><span class="stat-val" id="statSpeedup">—</span><span class="stat-lbl">Speedup vs n²</span></div>
         </div>
       </div>
+    </div>
 
-      <!-- History -->
-      <div class="panel-card">
-        <h3>Step History (click row to jump)</h3>
-        <div class="history-table-wrap">
-          <table class="history-table" id="historyTable">
-            <thead><tr><th>#</th><th>Phase</th><th>Description</th></tr></thead>
-            <tbody id="historyBody"></tbody>
-          </table>
+    <!-- History -->
+    <div class="section">
+      <div class="section-header">Step History — Click to jump</div>
+      <div class="history-wrap">
+        <table class="history-table">
+          <thead><tr><th>#</th><th>Phase</th><th>Detail</th><th>Ops</th></tr></thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Educational -->
+    <div class="section">
+      <button class="edu-toggle" onclick="toggleEdu(this)">
+        Algorithm Overview &amp; Key Concepts <span class="arrow">▼</span>
+      </button>
+      <div class="edu-body">
+        <h4>Why not evaluate at arbitrary points?</h4>
+        Any n+1 points uniquely determine a degree-n polynomial. The trick is choosing the n-th
+        roots of unity — they have algebraic structure (cancellation + halving properties) that
+        lets the evaluation decompose recursively.
+        <div class="concept-box">
+          <strong>A(x) = A_even(x²) + x · A_odd(x²)</strong><br>
+          Splitting by even/odd index halves the problem at each level.
+          With log₂(n) levels and n/2 butterflies per level: O(n log n).
+        </div>
+        <h4>Inverse FFT</h4>
+        IFFT is identical to FFT but uses ω⁻¹ = e^(−2πi/n) as the twiddle factor and
+        divides all outputs by n. The DFT matrix is unitary (up to 1/√n scaling).
+        <div class="concept-box grn">
+          <strong>Worked Example:</strong><br>
+          A=[1,2,3,4], B=[1,1,1,1]. Pad to n=8. FFT(A) and FFT(B) evaluate at 8 roots of unity,
+          multiply pointwise (8 ops), IFFT → C=[1,3,6,10,10,9,7,4] ✓
+        </div>
+        <h4>Applications</h4>
+        Signal processing (DSP), image compression (JPEG uses DCT, a variant), large integer multiplication,
+        convolution in neural networks, cryptography (NTT = Number Theoretic Transform).
+      </div>
+    </div>
+
+  </div><!-- /left-panel -->
+
+  <!-- ======== RIGHT PANEL ======== -->
+  <div class="right-panel">
+    <div class="viz-header">
+      <span class="viz-title">FFT Butterfly Network &amp; Roots of Unity</span>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--acc)"></div>Poly A input</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--org)"></div>Poly B input</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--ylw)"></div>Active level</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--acc2)"></div>Pointwise ×</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--grn)"></div>IFFT / Result</div>
+      </div>
+    </div>
+
+    <div class="viz-area">
+      <div class="viz-placeholder" id="placeholder">
+        <div class="ph-icon">⌇</div>
+        <div class="ph-text">
+          Enter two polynomials on the left<br>
+          then press <strong style="color:var(--acc)">Build Steps</strong>
         </div>
       </div>
+      <svg id="mainSvg" class="canvas">
+        <g id="svgLayer"></g>
+      </svg>
+    </div>
 
-    </div><!-- end left-panel -->
-
-    <!-- ══ RIGHT PANEL ══ -->
-    <div class="right-panel">
-
-      <!-- Step explanation -->
-      <div class="viz-card">
-        <h3>Current Step</h3>
-        <div class="step-explain" id="stepExplain">
-          <div class="phase">—</div>
-          Click <strong>Build Steps</strong> then use Step or Play to begin.
-        </div>
+    <!-- polynomial display strip -->
+    <div class="poly-result" id="polyStrip">
+      <div class="poly-term">
+        <span class="poly-label">A(x)</span>
+        <span style="color:var(--acc)" id="dispA">—</span>
       </div>
-
-      <!-- Main butterfly viz -->
-      <div class="viz-card">
-        <h3>Butterfly Network — FFT Levels</h3>
-        <div class="legend">
-          <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>Input / Idle</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>Active Butterfly</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div>Twiddle Factor</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>Result</div>
-          <div class="legend-item"><div class="legend-dot" style="background:#f85149"></div>Inverse FFT</div>
-        </div>
-        <svg id="mainSvg" viewBox="0 0 800 380" preserveAspectRatio="xMidYMid meet"></svg>
+      <span style="color:var(--txt3)">×</span>
+      <div class="poly-term">
+        <span class="poly-label">B(x)</span>
+        <span style="color:var(--org)" id="dispB">—</span>
       </div>
-
-      <!-- Unit circle -->
-      <div class="viz-card">
-        <h3>Roots of Unity — Unit Circle</h3>
-        <svg id="complexSvg" viewBox="0 0 500 220" preserveAspectRatio="xMidYMid meet"></svg>
+      <span style="color:var(--txt3)">=</span>
+      <div class="poly-term">
+        <span class="poly-label">C(x)</span>
+        <span style="color:var(--grn)" id="dispC">run algorithm to compute</span>
       </div>
+    </div>
+  </div><!-- /right-panel -->
 
-      <!-- Comparison chart -->
-      <div class="viz-card">
-        <h3>Complexity Comparison — FFT vs Naive</h3>
-        <svg id="comparisonSvg" viewBox="0 0 700 200" preserveAspectRatio="xMidYMid meet"></svg>
-      </div>
+</div><!-- /tool-body -->
 
-      <!-- Coefficient display -->
-      <div class="viz-card">
-        <h3>Polynomials &amp; Result</h3>
-        <div id="polyDisplay" style="font-family:monospace;font-size:13px;line-height:2;color:var(--text);padding:4px 0;">
-          Enter polynomials and click Build Steps.
-        </div>
-      </div>
-
-    </div><!-- end right-panel -->
-  </div><!-- end tool-layout -->
-</div><!-- end tool-section -->
-
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
 <script>
-// ═══════════════════════════════════════════════════
-// PSEUDOCODE LINES
-// ═══════════════════════════════════════════════════
+/* ================================================================
+   PSEUDOCODE DEFINITIONS
+   ================================================================ */
 const PSEUDO = [
-  { code: '<span class="fn">FFT_MULTIPLY</span>(A, B):', tip: 'Entry point: multiply polynomials A and B' },
-  { code: '  n = next_power_of_2(len(A)+len(B)−1)', tip: 'Pad to next power of 2 ≥ degree(A)+degree(B)+1' },
-  { code: '  A_pad = pad(A, n);  B_pad = pad(B, n)', tip: 'Zero-pad both polynomials to length n' },
-  { code: '  Y_A = <span class="fn">FFT</span>(A_pad)   <span class="cm">// evaluate A at roots of unity</span>', tip: 'DFT of A: evaluate at ω⁰, ω¹, …, ωⁿ⁻¹' },
-  { code: '  Y_B = <span class="fn">FFT</span>(B_pad)   <span class="cm">// evaluate B at roots of unity</span>', tip: 'DFT of B: same evaluation points' },
-  { code: '  <span class="kw">for</span> k = 0 <span class="kw">to</span> n−1:', tip: 'Pointwise multiplication loop' },
-  { code: '    Y_C[k] = Y_A[k] × Y_B[k]  <span class="cm">// O(n) total</span>', tip: 'Multiply corresponding point-values — key O(n) step' },
-  { code: '  C = <span class="fn">IFFT</span>(Y_C)   <span class="cm">// interpolate back</span>', tip: 'Inverse DFT recovers coefficient representation' },
-  { code: '  <span class="kw">return</span> C[0..deg(A)+deg(B)]', tip: 'Trim trailing zeros — result has deg(A)+deg(B)+1 coefficients' },
-  { code: '', tip: '' },
-  { code: '<span class="fn">FFT</span>(a[0..n−1]):', tip: 'Cooley-Tukey recursive FFT' },
-  { code: '  <span class="kw">if</span> n == 1: <span class="kw">return</span> a', tip: 'Base case: single element, DFT of [a₀] is [a₀]' },
-  { code: '  a_even = [a[0],a[2],…]; a_odd=[a[1],a[3],…]', tip: 'Split into even and odd indexed coefficients' },
-  { code: '  y_e = <span class="fn">FFT</span>(a_even); y_o = <span class="fn">FFT</span>(a_odd)', tip: 'Recursively compute DFT of each half — T(n)=2T(n/2)+O(n)' },
-  { code: '  ω_n = e^(2πi/n);  ω = 1', tip: 'ωₙ is the primitive n-th root of unity' },
-  { code: '  <span class="kw">for</span> k = 0 <span class="kw">to</span> n/2−1:', tip: 'Butterfly loop — combines the two halves' },
-  { code: '    t = ω × y_o[k]              <span class="cm">// twiddle</span>', tip: 'Multiply odd half by twiddle factor ωₙᵏ' },
-  { code: '    y[k]     = y_e[k] + t', tip: 'Butterfly upper: add' },
-  { code: '    y[k+n/2] = y_e[k] − t', tip: 'Butterfly lower: subtract (cancellation property!)' },
-  { code: '    ω = ω × ω_n                 <span class="cm">// advance</span>', tip: 'Advance twiddle factor: ω = ωₙᵏ⁺¹' },
-  { code: '  <span class="kw">return</span> y', tip: 'Return DFT values for this level' },
+  { c:'FFT_MULTIPLY(A, B):',                         t:'Entry point: multiply polynomials A and B using FFT' },
+  { c:'  n = next_power_of_2(|A|+|B|−1)',             t:'Pad size must be power of 2 ≥ degree of result + 1' },
+  { c:'  A_pad = pad(A,n);  B_pad = pad(B,n)',        t:'Zero-pad both polynomials to length n' },
+  { c:'  Y_A = FFT(A_pad)   // evaluate A',           t:'DFT of A: evaluate at ω⁰, ω¹, …, ωⁿ⁻¹' },
+  { c:'  Y_B = FFT(B_pad)   // evaluate B',           t:'Same evaluation points for B' },
+  { c:'  for k = 0 to n−1:',                          t:'Pointwise multiplication loop — O(n)' },
+  { c:'    Y_C[k] = Y_A[k] × Y_B[k]',                t:'Multiply corresponding point values — key O(n) step' },
+  { c:'  C = IFFT(Y_C)      // interpolate back',     t:'Inverse DFT recovers coefficients' },
+  { c:'  return C[0..deg(A)+deg(B)]',                 t:'Trim trailing zeros' },
+  { c:'',                                              t:'' },
+  { c:'FFT(a[0..n−1]):',                              t:'Cooley-Tukey recursive FFT' },
+  { c:'  if n == 1: return a',                        t:'Base case: DFT of [a₀] is [a₀]' },
+  { c:'  a_even=[a[0],a[2],…]; a_odd=[a[1],a[3],…]', t:'Divide: split by even/odd index' },
+  { c:'  y_e = FFT(a_even); y_o = FFT(a_odd)',        t:'Conquer: recursive FFT on each half' },
+  { c:'  ω_n = e^(2πi/n);   ω = 1',                  t:'ωₙ is the primitive n-th root of unity' },
+  { c:'  for k = 0 to n/2−1:',                        t:'Butterfly loop: combine the two halves' },
+  { c:'    t = ω × y_o[k]   // twiddle factor',       t:'Multiply odd half by current twiddle ωₙᵏ' },
+  { c:'    y[k]     = y_e[k] + t  // upper',          t:'Butterfly upper output: add' },
+  { c:'    y[k+n/2] = y_e[k] − t  // lower',          t:'Butterfly lower output: subtract (cancellation!)' },
+  { c:'    ω = ω · ω_n',                              t:'Advance twiddle to ωₙᵏ⁺¹' },
+  { c:'  return y',                                   t:'Return DFT values for this recursion level' },
 ];
 
 function buildPseudo() {
-  const panel = document.getElementById('pseudoPanel');
-  panel.innerHTML = PSEUDO.map((l, i) =>
-    `<div class="pseudo-line" id="pl${i}" title="${l.tip || ''}">
-       <span class="ln">${l.code ? i+1 : ''}</span>
-       <span class="code">${l.code}</span>
-     </div>`
+  document.getElementById('pseudoPanel').innerHTML = PSEUDO.map((l,i) =>
+    `<div class="pc-line" id="pcl${i}" data-tip="${l.t}">` +
+    `<span class="pc-num">${l.c ? i+1 : ''}</span>` +
+    `<span class="pc-code">${l.c}</span></div>`
   ).join('');
 }
 
-function highlightLine(n) {
-  document.querySelectorAll('.pseudo-line').forEach(el => el.classList.remove('active'));
-  const el = document.getElementById('pl' + n);
-  if (el) { el.classList.add('active'); el.scrollIntoView({ block: 'nearest' }); }
+function hlLine(n) {
+  document.querySelectorAll('.pc-line').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById('pcl' + n);
+  if (!el) return;
+  el.classList.add('active');
+  const box = el.closest('.pseudocode');
+  if (box) {
+    const lt = el.offsetTop, lb = lt + el.offsetHeight;
+    const bt = box.scrollTop, bb = bt + box.clientHeight;
+    if (lt < bt) box.scrollTop = lt - 4;
+    else if (lb > bb) box.scrollTop = lb - box.clientHeight + 4;
+  }
 }
 
-// ═══════════════════════════════════════════════════
-// PRESETS
-// ═══════════════════════════════════════════════════
+/* ================================================================
+   PRESETS
+   ================================================================ */
 const PRESETS = [
-  { a: [1, 2],    b: [3, 4],       label: 'Linear × Linear' },
-  { a: [1, 2, 1], b: [1, 1],       label: 'Quadratic × Linear' },
-  { a: [1, -1, 2], b: [2, 1, -1],  label: 'Quadratic × Quadratic' },
-  { a: [1, 2, 0, -1], b: [1, -2, 1, 0], label: 'Cubic × Cubic' },
+  { a:[1,2,3,4],   b:[1,1,1,1]   },
+  { a:[1,2,1],     b:[1,-1]      },
+  { a:[1,2,4,8],   b:[1,2,4,8]  },
+  { a:[1,-1,1,-1], b:[1,1,-1,-1] },
 ];
 
 function loadPreset(i) {
-  const p = PRESETS[i];
-  document.getElementById('polyA').value = p.a.join(',');
-  document.getElementById('polyB').value = p.b.join(',');
-  document.querySelectorAll('.preset-btn').forEach((b, j) =>
-    b.classList.toggle('active', i === j));
+  document.getElementById('polyA').value = PRESETS[i].a.join(',');
+  document.getElementById('polyB').value = PRESETS[i].b.join(',');
+  document.querySelectorAll('.preset-btn').forEach((b,j) => b.classList.toggle('active', i===j));
   resetTool();
 }
 
-// ═══════════════════════════════════════════════════
-// FFT IMPLEMENTATION
-// ═══════════════════════════════════════════════════
-function parseCoeffs(str) {
-  return str.split(',').map(s => parseFloat(s.trim())).filter(x => !isNaN(x));
+/* ================================================================
+   FFT MATH
+   ================================================================ */
+function parsePoly(s) {
+  return s.split(',').map(x => parseFloat(x.trim())).filter(x => !isNaN(x));
+}
+function nextPow2(n) { let p=1; while(p<n) p<<=1; return p; }
+function polyStr(c) {
+  if (!c || !c.length) return '0';
+  const terms = c.map((v,i) => {
+    const r = Math.round(v*1000)/1000;
+    if (Math.abs(r)<1e-6) return '';
+    const sign = r<0 ? '−' : (i>0 ? '+' : '');
+    const abs = Math.abs(r);
+    if (i===0) return (r<0?'−':'')+abs;
+    if (i===1) return sign+(abs===1?'':abs)+'x';
+    return sign+(abs===1?'':abs)+'x^'+i;
+  }).filter(Boolean);
+  return terms.join(' ') || '0';
 }
 
-function nextPow2(n) {
-  let p = 1; while (p < n) p <<= 1; return p;
-}
-
-function fft(re, im, inverse) {
+function fftInPlace(re, im, inv) {
   const n = re.length;
-  // bit-reversal
-  for (let i = 1, j = 0; i < n; i++) {
-    let bit = n >> 1;
-    for (; j & bit; bit >>= 1) j ^= bit;
-    j ^= bit;
-    if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; }
+  for (let i=1,j=0; i<n; i++) {
+    let bit = n>>1;
+    for (; j&bit; bit>>=1) j^=bit;
+    j^=bit;
+    if (i<j) { [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
   }
-  for (let len = 2; len <= n; len <<= 1) {
-    const ang = 2 * Math.PI / len * (inverse ? -1 : 1);
-    const wRe = Math.cos(ang), wIm = Math.sin(ang);
-    for (let i = 0; i < n; i += len) {
-      let curRe = 1, curIm = 0;
-      for (let j = 0; j < len / 2; j++) {
-        const uRe = re[i+j], uIm = im[i+j];
-        const vRe = re[i+j+len/2]*curRe - im[i+j+len/2]*curIm;
-        const vIm = re[i+j+len/2]*curIm + im[i+j+len/2]*curRe;
-        re[i+j] = uRe+vRe; im[i+j] = uIm+vIm;
-        re[i+j+len/2] = uRe-vRe; im[i+j+len/2] = uIm-vIm;
-        [curRe, curIm] = [curRe*wRe - curIm*wIm, curRe*wIm + curIm*wRe];
+  for (let len=2; len<=n; len<<=1) {
+    const ang = 2*Math.PI/len*(inv?-1:1);
+    const wr=Math.cos(ang), wi=Math.sin(ang);
+    for (let i=0; i<n; i+=len) {
+      let cr=1, ci=0;
+      for (let j=0; j<len/2; j++) {
+        const ur=re[i+j], ui=im[i+j];
+        const vr=re[i+j+len/2]*cr-im[i+j+len/2]*ci;
+        const vi=re[i+j+len/2]*ci+im[i+j+len/2]*cr;
+        re[i+j]=ur+vr; im[i+j]=ui+vi;
+        re[i+j+len/2]=ur-vr; im[i+j+len/2]=ui-vi;
+        [cr,ci]=[cr*wr-ci*wi, cr*wi+ci*wr];
       }
     }
   }
-  if (inverse) { for (let i = 0; i < n; i++) { re[i] /= n; im[i] /= n; } }
+  if (inv) { for(let i=0;i<n;i++){re[i]/=n;im[i]/=n;} }
 }
 
-function multiply(A, B) {
-  const resLen = A.length + B.length - 1;
-  const n = nextPow2(resLen);
-  const reA = [...A, ...Array(n-A.length).fill(0)];
-  const imA = Array(n).fill(0);
-  const reB = [...B, ...Array(n-B.length).fill(0)];
-  const imB = Array(n).fill(0);
-  fft(reA, imA, false);
-  fft(reB, imB, false);
-  const reC = [], imC = [];
-  for (let k = 0; k < n; k++) {
-    reC.push(reA[k]*reB[k] - imA[k]*imB[k]);
-    imC.push(reA[k]*imB[k] + imA[k]*reB[k]);
-  }
-  fft(reC, imC, true);
-  return reC.slice(0, resLen).map(v => Math.round(v * 1e9) / 1e9);
+function multiply(A,B) {
+  const resLen=A.length+B.length-1;
+  const n=nextPow2(resLen);
+  const ra=[...A,...Array(n-A.length).fill(0)];
+  const ia=Array(n).fill(0);
+  const rb=[...B,...Array(n-B.length).fill(0)];
+  const ib=Array(n).fill(0);
+  fftInPlace(ra,ia,false); fftInPlace(rb,ib,false);
+  const rc=[],ic=[];
+  for(let k=0;k<n;k++){rc.push(ra[k]*rb[k]-ia[k]*ib[k]);ic.push(ra[k]*ib[k]+ia[k]*rb[k]);}
+  fftInPlace(rc,ic,true);
+  return rc.slice(0,resLen).map(v=>Math.round(v*1e9)/1e9);
 }
 
-// ═══════════════════════════════════════════════════
-// STEP ENGINE
-// ═══════════════════════════════════════════════════
-let steps = [], curStep = -1, playing = false, timer = null;
+/* ================================================================
+   STEP ENGINE
+   ================================================================ */
+let steps=[], curIdx=-1, playing=false, timer=null;
+let stPolyA=[], stPolyB=[], stN=0, stLevels=0, stResult=[];
+let stNaiveOps=0, stFftOps=0;
 
-function getSpeed() { return parseFloat(document.getElementById('speedSlider').value); }
+const _jumpCallbacks = {};
+function regJump(id, cb) { _jumpCallbacks[id] = cb; }
 
 function buildSteps() {
   resetTool(false);
-  const A = parseCoeffs(document.getElementById('polyA').value);
-  const B = parseCoeffs(document.getElementById('polyB').value);
-  if (!A.length || !B.length) { alert('Enter valid coefficients'); return; }
+  const A = parsePoly(document.getElementById('polyA').value);
+  const B = parsePoly(document.getElementById('polyB').value);
+  if (!A.length || !B.length) { alert('Enter valid comma-separated coefficients.'); return; }
 
   const resLen = A.length + B.length - 1;
-  const n = nextPow2(resLen);
-  const levels = Math.log2(n);
+  const N = nextPow2(resLen);
+  const lv = Math.log2(N);
   const C = multiply(A, B);
+  const naiveOps = A.length * B.length;
+  const fftOps = Math.round(3 * (N/2) * lv + N);
+
+  stPolyA=A; stPolyB=B; stN=N; stLevels=lv; stResult=C;
+  stNaiveOps=naiveOps; stFftOps=fftOps;
+
+  document.getElementById('naiveOpsDisplay').textContent = naiveOps + ' ops';
+  document.getElementById('fftOpsDisplay').textContent = '~' + fftOps + ' ops';
+  document.getElementById('dispA').textContent = 'A(x) = ' + polyStr(A);
+  document.getElementById('dispB').textContent = 'B(x) = ' + polyStr(B);
+  document.getElementById('dispC').textContent = 'run algorithm to compute';
+  document.getElementById('dispC').style.color = 'var(--txt3)';
 
   steps = [];
+  let mults = 0, adds = 0;
 
-  // Step 0 — intro
-  steps.push({ phase: 'Setup', line: 0, explain: `Multiplying A(x)=${polyStr(A)} by B(x)=${polyStr(B)}. Result has ${resLen} coefficients.`, butterfly: null, circleHighlight: [] });
+  // Step 0: Input
+  steps.push({ phase:'Input', sub:'init', pcLine:0, mults:0, adds:0, level:-1,
+    expl:`INPUT: A(x) = ${polyStr(A)}  |  B(x) = ${polyStr(B)}.\nNaïve needs ${naiveOps} ops (O(n²)).  FFT needs ~${fftOps} ops (O(n log n)).\nPadding both to n=${N} (next power of 2 ≥ ${resLen}).`, detail:'Input & pad' });
 
-  // Step 1 — pad
-  steps.push({ phase: 'Setup', line: 1, explain: `Next power of 2 ≥ ${resLen} is n=${n}. We need n points to represent degree-${resLen-1} result.`, butterfly: null, circleHighlight: [] });
-  steps.push({ phase: 'Setup', line: 2, explain: `Pad A to [${[...A,...Array(n-A.length).fill(0)].join(', ')}] and B to [${[...B,...Array(n-B.length).fill(0)].join(', ')}].`, butterfly: null, circleHighlight: [] });
+  steps.push({ phase:'Setup', sub:'split', pcLine:2, mults:0, adds:0, level:-1,
+    expl:`PAD: A → [${[...A,...Array(N-A.length).fill(0)].join(', ')}]\nPAD: B → [${[...B,...Array(N-B.length).fill(0)].join(', ')}]\nThen split by even/odd index — the divide step of divide-and-conquer.`, detail:'Zero-pad' });
 
-  // FFT(A)
-  steps.push({ phase: 'FFT(A)', line: 3, explain: `Evaluating A at all ${n} roots of unity ω⁰, ω¹, …, ω^${n-1} using Cooley-Tukey FFT.`, butterfly: null, circleHighlight: Array.from({length:n},(_,i)=>i) });
-
-  for (let lvl = 0; lvl < levels; lvl++) {
-    const len = 2 << lvl;
-    const half = len >> 1;
-    const bCnt = n / len * half;
-    steps.push({
-      phase: `FFT(A) Level ${lvl+1}`,
-      line: lvl === 0 ? 12 : 15,
-      explain: `Level ${lvl+1}/${levels}: len=${len}, combining ${bCnt} butterfly pairs. Twiddle ω = e^(2πi/${len}).`,
-      butterfly: { level: lvl, n, levels },
-      circleHighlight: Array.from({length:n},(_,i) => i % len < half ? i : -1).filter(x=>x>=0),
-      butterflyCount: bCnt,
-    });
+  // FFT(A) levels
+  steps.push({ phase:'FFT(A)', sub:'fftA', pcLine:3, mults:0, adds:0, level:-1,
+    expl:`Starting FFT on polynomial A. We evaluate A at all ${N} roots of unity ω⁰, ω¹, …, ω^${N-1}.\nThis uses the Cooley-Tukey recursive butterfly structure across ${lv} levels.`, detail:'FFT(A) start' });
+  for (let l=0; l<lv; l++) {
+    const bsz=2<<l, half=bsz>>1, blocks=N/bsz;
+    mults+=N/2; adds+=N;
+    steps.push({ phase:`FFT(A) Lv ${l+1}/${lv}`, sub:'fftA', pcLine: l===0?12:16, mults, adds, level:l,
+      expl:`FFT(A) Level ${l+1}/${lv}: block size=${bsz}, ${blocks} blocks, ${N/2} butterflies.\nEach butterfly: t = ω^k · a_odd[k],  a[k] = a_even[k]+t,  a[k+n/2] = a_even[k]−t.\nTwiddle factor ω = e^(2πi/${bsz}) advances each iteration.`, detail:`FFT(A) Lv ${l+1}` });
   }
 
-  // FFT(B)
-  steps.push({ phase: 'FFT(B)', line: 4, explain: `Now running identical FFT on polynomial B using the same ${n} roots of unity.`, butterfly: null, circleHighlight: Array.from({length:n},(_,i)=>i) });
-  for (let lvl = 0; lvl < levels; lvl++) {
-    const len = 2 << lvl;
-    const half = len >> 1;
-    const bCnt = n / len * half;
-    steps.push({
-      phase: `FFT(B) Level ${lvl+1}`,
-      line: 15,
-      explain: `FFT(B) Level ${lvl+1}/${levels}: same butterfly structure as FFT(A).`,
-      butterfly: { level: lvl, n, levels },
-      circleHighlight: Array.from({length:n},(_,i) => i % len < half ? i : -1).filter(x=>x>=0),
-      butterflyCount: bCnt,
-      isBfftB: true,
-    });
+  // FFT(B) levels
+  steps.push({ phase:'FFT(B)', sub:'fftB', pcLine:4, mults, adds, level:-1,
+    expl:`Now running identical FFT on polynomial B. Same ${N} roots of unity, same ${lv}-level butterfly structure.\nAfter this, B is fully evaluated in point-value representation.`, detail:'FFT(B) start' });
+  for (let l=0; l<lv; l++) {
+    mults+=N/2; adds+=N;
+    steps.push({ phase:`FFT(B) Lv ${l+1}/${lv}`, sub:'fftB', pcLine:16, mults, adds, level:l,
+      expl:`FFT(B) Level ${l+1}/${lv}: identical butterfly structure as FFT(A).\nBlock size=${2<<l}, ${N/2} complex multiplications at this level.`, detail:`FFT(B) Lv ${l+1}` });
   }
 
-  // Pointwise multiply
-  steps.push({ phase: 'Pointwise ×', line: 5, explain: `Pointwise multiply: for each k from 0 to ${n-1}, compute Y_C[k] = Y_A[k] × Y_B[k]. This is O(n) = O(${n}).`, butterfly: null, circleHighlight: [] });
-  for (let k = 0; k < Math.min(n, 4); k++) {
-    steps.push({ phase: 'Pointwise ×', line: 6, explain: `k=${k}: Y_C[${k}] = Y_A[${k}] × Y_B[${k}] ✓`, butterfly: null, circleHighlight: [k] });
+  // Pointwise
+  mults+=N;
+  steps.push({ phase:'Pointwise ×', sub:'pointwise', pcLine:5, mults, adds, level:lv,
+    expl:`POINTWISE MULTIPLY: C[k] = A_eval[k] × B_eval[k]  for k = 0…${N-1}.\nThis is O(n) = ${N} complex multiplications — the key efficient step.\nCompare: naïve needed ${naiveOps} multiplications across all coefficient pairs.`, detail:'Pointwise ×' });
+  for (let k=0; k<Math.min(N,4); k++) {
+    steps.push({ phase:'Pointwise ×', sub:'pointwiseK', pcLine:6, mults:mults+k, adds, level:lv,
+      expl:`k=${k}: C[${k}] = A_eval[${k}] × B_eval[${k}] ✓`, detail:`PW k=${k}` });
   }
-  if (n > 4) steps.push({ phase: 'Pointwise ×', line: 6, explain: `… continuing for all ${n} points. Total: ${n} multiplications vs O(n²)=${A.length*B.length} naive.`, butterfly: null, circleHighlight: [] });
 
   // IFFT
-  steps.push({ phase: 'IFFT', line: 7, explain: `Running Inverse FFT on Y_C. Replace ωₙ with ωₙ⁻¹ = e^(−2πi/n) and divide by n=${n}.`, butterfly: null, circleHighlight: [] });
-  for (let lvl = 0; lvl < levels; lvl++) {
-    steps.push({
-      phase: `IFFT Level ${lvl+1}`,
-      line: 15,
-      explain: `IFFT Level ${lvl+1}/${levels}: butterfly with conjugate twiddle factors (negative angle).`,
-      butterfly: { level: lvl, n, levels, isInverse: true },
-      circleHighlight: [],
-    });
+  steps.push({ phase:'IFFT', sub:'ifft', pcLine:7, mults, adds, level:-1,
+    expl:`INVERSE FFT: same butterfly structure but twiddle = ω⁻¹ = e^(−2πi/n), divide by n=${N}.\nThis recovers the coefficient representation from point values — the interpolation step.`, detail:'IFFT start' });
+  for (let l=0; l<lv; l++) {
+    mults+=N/2; adds+=N;
+    steps.push({ phase:`IFFT Lv ${l+1}/${lv}`, sub:'ifft', pcLine:16, mults, adds, level:l,
+      expl:`IFFT Level ${l+1}/${lv}: conjugate twiddle ω̄ = e^(−2πi/${2<<l}).\nSame butterfly math — addition and subtraction — but angle is negated.\nFinal step divides all values by n=${N}.`, detail:`IFFT Lv ${l+1}` });
   }
 
   // Result
-  steps.push({ phase: 'Result', line: 8, explain: `IFFT complete. C = [${C.map(v=>v.toFixed(1)).join(', ')}]. Trim to ${resLen} coefficients.`, butterfly: null, circleHighlight: [] });
-  steps.push({ phase: 'Done', line: 8, explain: `✓ C(x) = ${polyStr(C)}. Verified: ${polyStr(A)} × ${polyStr(B)} = ${polyStr(C)}.`, butterfly: null, circleHighlight: [], done: true, result: C });
+  steps.push({ phase:'Done ✓', sub:'result', pcLine:8, mults, adds, level:lv+1,
+    expl:`RESULT: C(x) = ${polyStr(C)}\nCoefficients: [${C.map(v=>Math.round(v*100)/100).join(', ')}]\nFFT used ~${fftOps} ops vs ${naiveOps} naïve → ${(naiveOps/fftOps).toFixed(1)}× speedup for n=${N}.`,
+    detail:'Done ✓', done:true });
 
-  // update stats
-  const totalButterflies = (n / 2) * levels;
-  document.getElementById('statButterflies').textContent = totalButterflies;
-  document.getElementById('statMults').textContent = n;
-  document.getElementById('statLevels').textContent = levels;
-  const naive = A.length * B.length;
-  const fftOps = 3 * n * levels / 2 + n;
-  document.getElementById('statSpeedup').textContent = (naive / fftOps).toFixed(1) + '×';
+  // stats
+  document.getElementById('statButterflies').textContent = (N/2)*lv;
+  document.getElementById('statMults').textContent = N;
+  document.getElementById('statLevels').textContent = lv;
+  document.getElementById('statSpeedup').textContent = (naiveOps/fftOps).toFixed(1)+'×';
 
-  updatePolyDisplay(A, B, null);
-  drawComparison(A.length, B.length);
-  drawUnitCircle(n, []);
-  renderHistory();
+  document.getElementById('placeholder').style.display = 'none';
+  regJump('historyBody', jumpTo);
+  rebuildHistory(-1);
   setStatus('ready');
   document.getElementById('btnStep').disabled = false;
   document.getElementById('btnPlay').disabled = false;
-  curStep = -1;
-  document.getElementById('stepCounter').textContent = `Step 0 / ${steps.length}`;
-}
-
-function stepOnce() {
-  if (curStep + 1 >= steps.length) return;
-  curStep++;
-  applyStep(curStep);
+  curIdx = -1;
+  setCounter(0, steps.length);
 }
 
 function applyStep(i) {
+  if (i<0||i>=steps.length) return;
   const s = steps[i];
-  document.getElementById('stepCounter').textContent = `Step ${i+1} / ${steps.length}`;
-  highlightLine(s.line);
-  const ex = document.getElementById('stepExplain');
-  ex.innerHTML = `<div class="phase">${s.phase}</div>${s.explain}`;
-  drawUnitCircle(nextPow2(parseCoeffs(document.getElementById('polyA').value).length + parseCoeffs(document.getElementById('polyB').value).length - 1), s.circleHighlight || []);
-  if (s.butterfly) drawButterfly(s.butterfly);
-  else if (s.phase === 'Pointwise ×' || s.phase.startsWith('FFT') || s.phase.startsWith('IFFT') || s.phase === 'Result' || s.phase === 'Done') {
-    // keep last butterfly
-  } else drawButterfly(null);
-
+  setCounter(i+1, steps.length);
+  document.getElementById('stepExplain').textContent = s.expl;
+  hlLine(s.pcLine);
+  draw(i);
   if (s.done) {
-    const A = parseCoeffs(document.getElementById('polyA').value);
-    const B = parseCoeffs(document.getElementById('polyB').value);
-    updatePolyDisplay(A, B, s.result);
+    document.getElementById('dispC').textContent = 'C(x) = ' + polyStr(stResult);
+    document.getElementById('dispC').style.color = 'var(--grn)';
     setStatus('done');
-    pauseAnim();
-    document.getElementById('btnPlay').disabled = true;
-    document.getElementById('btnStep').disabled = true;
+    playing=false;
+    document.getElementById('btnPlay').disabled=true;
+    document.getElementById('btnStep').disabled=true;
   } else if (!playing) setStatus('paused');
-
   // history highlight
   document.querySelectorAll('#historyBody tr').forEach((r,j) => r.classList.toggle('current', j===i));
   const row = document.querySelector(`#historyBody tr:nth-child(${i+1})`);
-  if (row) row.scrollIntoView({ block: 'nearest' });
+  if (row) row.scrollIntoView({block:'nearest'});
+}
+
+function stepOnce() {
+  if (curIdx+1>=steps.length) return;
+  curIdx++; applyStep(curIdx);
 }
 
 function playAnim() {
-  if (curStep + 1 >= steps.length) return;
-  playing = true;
-  setStatus('playing');
-  document.getElementById('btnPause').disabled = false;
+  if (playing || curIdx+1>=steps.length) return;
+  playing=true; setStatus('playing');
+  document.getElementById('btnPause').disabled=false;
   function tick() {
-    if (!playing || curStep + 1 >= steps.length) { playing = false; return; }
-    curStep++;
-    applyStep(curStep);
-    const delay = 900 / getSpeed();
-    timer = setTimeout(tick, delay);
+    if (!playing||curIdx+1>=steps.length){playing=false;return;}
+    curIdx++; applyStep(curIdx);
+    timer=setTimeout(tick, 850/parseFloat(document.getElementById('speedSlider').value));
   }
   tick();
 }
 
 function pauseAnim() {
-  playing = false;
-  clearTimeout(timer);
-  if (curStep >= 0 && curStep < steps.length - 1) setStatus('paused');
-  document.getElementById('btnPause').disabled = true;
+  playing=false; clearTimeout(timer);
+  document.getElementById('btnPause').disabled=true;
+  if (curIdx<steps.length-1) setStatus('paused');
 }
 
-function resetTool(full = true) {
-  playing = false; clearTimeout(timer); curStep = -1; steps = [];
-  setStatus('idle');
-  document.getElementById('stepCounter').textContent = 'Step 0 / 0';
-  document.getElementById('stepExplain').innerHTML = '<div class="phase">—</div>Click <strong>Build Steps</strong> then use Step or Play to begin.';
-  document.getElementById('btnStep').disabled = true;
-  document.getElementById('btnPlay').disabled = true;
-  document.getElementById('btnPause').disabled = true;
-  document.getElementById('historyBody').innerHTML = '';
-  document.getElementById('statButterflies').textContent = '0';
-  document.getElementById('statMults').textContent = '0';
-  document.getElementById('statLevels').textContent = '0';
-  document.getElementById('statSpeedup').textContent = '—';
-  document.getElementById('polyDisplay').textContent = 'Enter polynomials and click Build Steps.';
-  document.querySelectorAll('.pseudo-line').forEach(el => el.classList.remove('active'));
-  drawButterfly(null);
-  drawUnitCircle(8, []);
-  drawComparison(2, 2);
-}
-
-function renderHistory() {
-  const body = document.getElementById('historyBody');
-  body.innerHTML = steps.map((s, i) =>
-    `<tr onclick="jumpTo(${i})"><td>${i+1}</td><td>${s.phase}</td><td>${s.explain.replace(/<[^>]+>/g,'').substring(0,60)}…</td></tr>`
-  ).join('');
+function resetTool(full=true) {
+  playing=false; clearTimeout(timer); curIdx=-1; steps=[];
+  setStatus('idle'); setCounter(0,0);
+  document.getElementById('stepExplain').textContent = 'Enter two polynomials and press Build Steps to begin.';
+  document.getElementById('btnStep').disabled=true;
+  document.getElementById('btnPlay').disabled=true;
+  document.getElementById('btnPause').disabled=true;
+  document.getElementById('historyBody').innerHTML='';
+  document.getElementById('statButterflies').textContent='0';
+  document.getElementById('statMults').textContent='0';
+  document.getElementById('statLevels').textContent='0';
+  document.getElementById('statSpeedup').textContent='—';
+  document.getElementById('naiveOpsDisplay').textContent='— ops';
+  document.getElementById('fftOpsDisplay').textContent='— ops';
+  document.getElementById('dispC').textContent='run algorithm to compute';
+  document.getElementById('dispC').style.color='var(--txt3)';
+  document.querySelectorAll('.pc-line').forEach(el=>el.classList.remove('active'));
+  document.getElementById('svgLayer').innerHTML='';
+  if (full) { document.getElementById('placeholder').style.display='flex'; stPolyA=[];stPolyB=[];stN=0;stLevels=0;stResult=[]; }
+  drawIdle();
 }
 
 function jumpTo(i) {
-  pauseAnim();
-  curStep = i;
+  pauseAnim(); curIdx=i;
+  rebuildHistory(i);
   applyStep(i);
   setStatus('paused');
 }
 
-function setStatus(s) {
-  const el = document.getElementById('statusBadge');
-  const map = { idle:'Idle', ready:'Ready', playing:'Playing', paused:'Paused', done:'Done' };
-  const cls = { idle:'status-idle', ready:'status-ready', playing:'status-playing', paused:'status-paused', done:'status-done' };
-  el.textContent = map[s] || s;
-  el.className = 'status-badge ' + (cls[s] || 'status-idle');
+function rebuildHistory(cur) {
+  const body=document.getElementById('historyBody');
+  body.innerHTML='';
+  steps.forEach((s,i)=>{
+    const tr=document.createElement('tr');
+    if(i===cur)tr.classList.add('current');
+    tr.style.cursor='pointer';
+    tr.addEventListener('click',()=>jumpTo(i));
+    ['#'+(i+1),s.phase,s.detail,(s.mults+s.adds)].forEach(t=>{
+      const td=document.createElement('td');td.textContent=t;tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
 }
 
-// ═══════════════════════════════════════════════════
-// SVG: BUTTERFLY NETWORK
-// ═══════════════════════════════════════════════════
-let lastButterflyState = null;
+/* ================================================================
+   STATUS / COUNTER HELPERS
+   ================================================================ */
+function setStatus(s) {
+  const el=document.getElementById('statusBadge');
+  const map={idle:'Idle',ready:'Ready',playing:'Playing',paused:'Paused',done:'Done'};
+  const cls={idle:'badge-idle',ready:'badge-ready',playing:'badge-playing',paused:'badge-paused',done:'badge-done'};
+  el.textContent=map[s]||s; el.className='badge '+(cls[s]||'badge-idle');
+}
+function setCounter(cur,tot) {
+  document.getElementById('stepCounter').textContent=`Step ${cur} / ${tot}`;
+}
 
-function drawButterfly(state) {
-  if (!state) { lastButterflyState = null; clearSvg('mainSvg'); drawIdleButterfly(); return; }
-  lastButterflyState = state;
-  const svg = document.getElementById('mainSvg');
-  clearSvg('mainSvg');
-  const { level, n, levels, isInverse } = state;
-  const W = 800, H = 380;
-  const padL = 50, padR = 40, padT = 30, padB = 30;
-  const colW = (W - padL - padR) / (levels + 1);
-  const rowH = (H - padT - padB) / n;
+/* ================================================================
+   SVG DRAWING
+   ================================================================ */
+function svgEl(tag, attr) {
+  const el=document.createElementNS('http://www.w3.org/2000/svg',tag);
+  for(const k in attr) el.setAttribute(k,attr[k]);
+  return el;
+}
+function svgTxt(content, attr) {
+  const el=svgEl('text',attr); el.textContent=content; return el;
+}
+function clearSvg() { document.getElementById('svgLayer').innerHTML=''; }
 
-  // draw all nodes
-  const nodeX = col => padL + col * colW;
-  const nodeY = row => padT + (row + 0.5) * rowH;
+function drawIdle() {
+  clearSvg();
+  const g=document.getElementById('svgLayer');
+  const svg=document.getElementById('mainSvg');
+  const W=svg.clientWidth||800, H=svg.clientHeight||500;
+  g.appendChild(svgTxt('Build Steps to see the butterfly network animate', {
+    x:W/2, y:H/2, 'text-anchor':'middle', 'font-size':'13',
+    'font-family':'Inter,system-ui', fill:'#2a3d5a'
+  }));
+}
 
-  // color for node
-  const nodeColor = (col, row) => {
-    if (col === 0) return '#58a6ff';
-    if (col <= level) return '#bc8cff';
-    if (col === level + 1) return '#3fb950';
-    return '#30363d';
+function draw(stepIdx) {
+  clearSvg();
+  if (!steps.length) return;
+  const svg=document.getElementById('mainSvg');
+  const W=svg.clientWidth||800, H=svg.clientHeight||500;
+  const g=document.getElementById('svgLayer');
+  const s=steps[Math.max(0,stepIdx)];
+  const N=stN, lv=stLevels;
+
+  /* ── LAYOUT ──
+     Left 62%: butterfly network
+     Right 38%: unit circle
+  */
+  const bfW=Math.floor(W*0.62);
+  const ucW=W-bfW;
+  const ucCX=bfW+Math.floor(ucW/2);
+  const ucCY=Math.floor(H*0.44);
+  const ucR=Math.min(Math.floor(ucW/2)-22, Math.floor(H*0.3));
+
+  // ── Butterfly layout ──
+  const displayN=Math.min(N,16);
+  // cols: Input | FFT-L1..Lk | PW | IFFT-L1..Lk | Output
+  const totalCols=1+lv+1+lv+1;
+  const padX=38, padY=30;
+  const colW=(bfW-2*padX)/Math.max(1,totalCols-1);
+  const rowH=(H-2*padY)/Math.max(1,displayN-1);
+  const nodeR=Math.max(6, Math.min(11, rowH/2-2));
+
+  const np=(c,r)=>({x:padX+c*colW, y:padY+r*rowH});
+
+  // active column from step sub-phase
+  let activeCol=0;
+  if (s.sub==='init'||s.sub==='split') activeCol=0;
+  else if (s.sub==='fftA') activeCol=s.level>=0?s.level+1:1;
+  else if (s.sub==='fftB') activeCol=s.level>=0?lv+s.level+2:lv+2;
+  else if (s.sub==='pointwise'||s.sub==='pointwiseK') activeCol=lv+1;
+  else if (s.sub==='ifft') activeCol=s.level>=0?lv+2+s.level:lv+2;
+  else if (s.sub==='result') activeCol=totalCols-1;
+
+  const phColors={
+    init:'#3da9fc', split:'#f6b93b',
+    fftA:'#3da9fc', fftB:'#f0803c',
+    pointwise:'#8b5cf6', pointwiseK:'#8b5cf6',
+    ifft:'#10d9a0', result:'#10d9a0'
   };
+  const phClr=phColors[s.sub]||'#3da9fc';
 
-  // draw edges for current level
-  for (let i = 0; i < n; i += (2 << level)) {
-    const half = 1 << level;
-    for (let j = 0; j < half; j++) {
-      const top = i + j, bot = i + j + half;
-      const x1 = nodeX(level), y1 = nodeY(top);
-      const x2 = nodeX(level), y2 = nodeY(bot);
-      const x3 = nodeX(level + 1);
-      // upper butterfly arm
-      addLine(svg, x1, y1, x3, nodeY(top), isInverse ? '#f85149' : '#3fb950', 2);
-      addLine(svg, x2, y2, x3, nodeY(top), isInverse ? '#f85149' : '#d29922', 2);
-      addLine(svg, x1, y1, x3, nodeY(bot), isInverse ? '#f85149' : '#d29922', 2);
-      addLine(svg, x2, y2, x3, nodeY(bot), isInverse ? '#f85149' : '#3fb950', 2);
-      // twiddle label
-      const mx = (x1 + x3) / 2, my = (y2 + nodeY(top)) / 2;
-      addText(svg, mx, my - 4, isInverse ? 'ω⁻¹' : 'ω', '#d29922', 9);
-    }
-  }
+  // Phase banner
+  g.appendChild(svgEl('rect',{x:padX,y:2,width:bfW-2*padX,height:16,rx:3,fill:'rgba(0,0,0,.3)',stroke:phClr,'stroke-width':'0.5'}));
+  g.appendChild(svgTxt('PHASE: '+s.phase,{x:bfW/2,y:13,'text-anchor':'middle','font-size':'10','font-family':'IBM Plex Mono,monospace',fill:phClr,'font-weight':'700'}));
 
-  // draw all non-active edges (gray)
-  for (let lvl = 0; lvl < levels; lvl++) {
-    if (lvl === level) continue;
-    for (let i = 0; i < n; i += (2 << lvl)) {
-      const half = 1 << lvl;
-      for (let j = 0; j < half; j++) {
-        const top = i + j, bot = i + j + half;
-        const x1 = nodeX(lvl), x2 = nodeX(lvl + 1);
-        addLine(svg, x1, nodeY(top), x2, nodeY(top), '#21262d', 1);
-        addLine(svg, x1, nodeY(bot), x2, nodeY(top), '#21262d', 1);
-        addLine(svg, x1, nodeY(top), x2, nodeY(bot), '#21262d', 1);
-        addLine(svg, x1, nodeY(bot), x2, nodeY(bot), '#21262d', 1);
+  // Column headers
+  const colLabels=['Input'];
+  for(let i=1;i<=lv;i++) colLabels.push('FFT L'+i);
+  colLabels.push('PW×');
+  for(let i=1;i<=lv;i++) colLabels.push('IFFT L'+i);
+  colLabels.push('Output');
+  colLabels.forEach((lbl,ci)=>{
+    const isPW=lbl==='PW×', isOut=lbl==='Output';
+    let lc=isPW?'#8b5cf6':isOut?'#10d9a0':'#2a3d5a';
+    if(ci===activeCol) lc=phClr;
+    g.appendChild(svgTxt(lbl,{x:padX+ci*colW,y:25,'text-anchor':'middle','font-size':'8','font-family':'IBM Plex Mono,monospace',fill:lc,'font-weight':ci===activeCol?'700':'400'}));
+  });
+
+  // Wires between columns
+  for(let col=0;col<totalCols-1;col++){
+    const isDone=col<activeCol, isAct=col===activeCol-1;
+    let bsz, hsz;
+    if(col<lv){bsz=2<<col;hsz=bsz>>1;}
+    else if(col===lv||col===lv+1){bsz=displayN;hsz=0;}
+    else{const il=col-(lv+2);bsz=2<<il;hsz=bsz>>1;}
+
+    const wc=isAct?phClr:isDone?'rgba(16,217,160,.5)':'#1f2e50';
+    const cc=isAct?'#f0803c':isDone?'rgba(16,217,160,.5)':'#1f2e50';
+    const ww=isAct?2:1.5, wo=isAct?1:isDone?0.55:0.18;
+
+    if(hsz===0){
+      for(let row=0;row<displayN;row++){
+        const pa=np(col,row),pb=np(col+1,row);
+        g.appendChild(svgEl('line',{x1:pa.x,y1:pa.y,x2:pb.x,y2:pb.y,stroke:isAct?'#8b5cf6':wc,'stroke-width':ww,opacity:wo,'stroke-dasharray':isAct?'5,3':'none'}));
+      }
+    } else {
+      for(let row=0;row<displayN;row+=bsz){
+        for(let k=0;k<hsz&&row+k+hsz<displayN;k++){
+          const t=np(col,row+k),tr2=np(col+1,row+k),b=np(col,row+k+hsz),br=np(col+1,row+k+hsz);
+          g.appendChild(svgEl('line',{x1:t.x,y1:t.y,x2:tr2.x,y2:tr2.y,stroke:wc,'stroke-width':ww,opacity:wo}));
+          g.appendChild(svgEl('line',{x1:b.x,y1:b.y,x2:tr2.x,y2:tr2.y,stroke:cc,'stroke-width':ww,opacity:wo,'stroke-dasharray':isAct?'5,3':'none'}));
+          g.appendChild(svgEl('line',{x1:b.x,y1:b.y,x2:br.x,y2:br.y,stroke:wc,'stroke-width':ww,opacity:wo}));
+          if(isAct&&k===0) g.appendChild(svgTxt('ω^k',{x:(b.x+tr2.x)/2+3,y:(b.y+tr2.y)/2-3,'font-size':'7','font-family':'IBM Plex Mono,monospace',fill:'#f0803c',opacity:'0.9'}));
+        }
       }
     }
   }
 
-  // draw nodes
-  for (let col = 0; col <= levels; col++) {
-    for (let row = 0; row < n; row++) {
-      const c = nodeColor(col, row);
-      addCircle(svg, nodeX(col), nodeY(row), 7, c, '#0a0e1a');
-      if (col === 0) addText(svg, nodeX(col) - 14, nodeY(row) + 4, `a${row}`, '#8b949e', 9);
-      if (col === levels) addText(svg, nodeX(col) + 12, nodeY(row) + 4, `Y${row}`, '#bc8cff', 9);
+  // Nodes
+  for(let c2=0;c2<totalCols;c2++){
+    const isPW=c2===lv+1, isOut=c2===totalCols-1, isIn=c2===0;
+    for(let r2=0;r2<displayN;r2++){
+      const p=np(c2,r2), actC=c2===activeCol, doneC=c2<activeCol;
+      const hn=Math.floor(displayN/2);
+      let f,st2;
+      if(isIn){f=r2<hn?'rgba(61,169,252,.18)':'rgba(240,128,60,.18)';st2=r2<hn?'#3da9fc':'#f0803c';}
+      else if(isOut&&s.sub==='result'){f='rgba(16,217,160,.22)';st2='#10d9a0';}
+      else if(isPW&&actC){f='rgba(139,92,246,.22)';st2='#8b5cf6';}
+      else if(isPW&&doneC){f='rgba(139,92,246,.1)';st2='rgba(139,92,246,.5)';}
+      else if(s.sub==='ifft'&&actC){f='rgba(16,217,160,.2)';st2='#10d9a0';}
+      else if(actC){f='rgba(246,185,59,.22)';st2='#f6b93b';}
+      else if(doneC){f='rgba(16,217,160,.07)';st2='rgba(16,217,160,.4)';}
+      else{f='#141e35';st2='#1f2e50';}
+
+      const circ=svgEl('circle',{cx:p.x,cy:p.y,r:nodeR,fill:f,stroke:st2,'stroke-width':'1.5'});
+      circ.classList.add('viz-node');
+      if(actC&&!isOut) circ.classList.add('anim-glow');
+      g.appendChild(circ);
+
+      // Input coefficient labels
+      if(isIn&&nodeR>=7){
+        const v=r2<hn?(stPolyA[r2]||0):(stPolyB[r2-hn]||0);
+        g.appendChild(svgTxt(String(v),{x:p.x,y:p.y+3.5,'text-anchor':'middle','font-size':'8','font-family':'IBM Plex Mono,monospace',fill:r2<hn?'#3da9fc':'#f0803c','font-weight':'700'}));
+      }
+      // Result labels
+      if(isOut&&s.sub==='result'&&stResult[r2]!==undefined&&nodeR>=7){
+        const rv=Math.round(stResult[r2]*100)/100;
+        g.appendChild(svgTxt(String(rv),{x:p.x,y:p.y+3.5,'text-anchor':'middle','font-size':'8','font-family':'IBM Plex Mono,monospace',fill:'#10d9a0','font-weight':'700'}));
+      }
     }
   }
 
-  // column headers
-  addText(svg, nodeX(0), padT - 12, 'Input', '#8b949e', 10);
-  for (let lvl = 1; lvl <= levels; lvl++)
-    addText(svg, nodeX(lvl), padT - 12, `L${lvl}`, lvl === level+1 ? '#3fb950' : '#444c56', 10);
-}
+  // Divider
+  const pwX=np(lv+1,0).x;
+  g.appendChild(svgEl('line',{x1:pwX,y1:28,x2:pwX,y2:H-8,stroke:'rgba(139,92,246,.22)','stroke-width':'1','stroke-dasharray':'4,4'}));
+  // A/B labels on input
+  g.appendChild(svgTxt('A',{x:padX-10,y:padY+4,'font-size':'11',fill:'#3da9fc','font-family':'IBM Plex Mono,monospace','font-weight':'700'}));
+  g.appendChild(svgTxt('B',{x:padX-10,y:padY+Math.floor(displayN/2)*rowH+6,'font-size':'11',fill:'#f0803c','font-family':'IBM Plex Mono,monospace','font-weight':'700'}));
 
-function drawIdleButterfly() {
-  const svg = document.getElementById('mainSvg');
-  addText(svg, 400, 190, 'Build Steps to see butterfly network', '#444c56', 14, 'middle');
-}
+  // Panel divider
+  g.appendChild(svgEl('line',{x1:bfW+2,y1:0,x2:bfW+2,y2:H,stroke:'#1f2e50','stroke-width':'1'}));
 
-// ═══════════════════════════════════════════════════
-// SVG: UNIT CIRCLE
-// ═══════════════════════════════════════════════════
-function drawUnitCircle(n, highlight) {
-  const svg = document.getElementById('complexSvg');
-  clearSvg('complexSvg');
-  const cx = 145, cy = 110, r = 85;
-  // axes
-  addLine(svg, cx - r - 10, cy, cx + r + 10, cy, '#30363d', 1);
-  addLine(svg, cx, cy - r - 10, cx, cy + r + 10, '#30363d', 1);
-  addText(svg, cx + r + 14, cy + 4, 'Re', '#8b949e', 10);
-  addText(svg, cx, cy - r - 14, 'Im', '#8b949e', 10);
-  // circle
-  const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-  circle.setAttribute('cx', cx); circle.setAttribute('cy', cy);
-  circle.setAttribute('r', r); circle.setAttribute('fill', 'none');
-  circle.setAttribute('stroke', '#30363d'); circle.setAttribute('stroke-width', '1');
-  svg.appendChild(circle);
-  // roots
-  for (let k = 0; k < n; k++) {
-    const ang = 2 * Math.PI * k / n - Math.PI / 2;
-    const px = cx + r * Math.cos(ang), py = cy + r * Math.sin(ang);
-    const isHl = highlight.includes(k);
-    addLine(svg, cx, cy, px, py, isHl ? '#58a6ff44' : '#21262d', 1);
-    addCircle(svg, px, py, isHl ? 6 : 4, isHl ? '#58a6ff' : '#30363d', '#0a0e1a');
-    if (n <= 8) {
-      const lx = cx + (r + 16) * Math.cos(ang), ly = cy + (r + 16) * Math.sin(ang);
-      addText(svg, lx, ly + 3, `ω${k}`, isHl ? '#58a6ff' : '#444c56', 8, 'middle');
+  /* ── UNIT CIRCLE ── */
+  const showN=Math.min(N,16);
+  const isIfft=(s.sub==='ifft');
+  const circTitle=isIfft?`Roots ω̄_${N} (IFFT, conjugate)`:`Roots of Unity  ω_${N}`;
+  g.appendChild(svgTxt(circTitle,{x:ucCX,y:ucCY-ucR-14,'text-anchor':'middle','font-size':'10','font-family':'IBM Plex Mono,monospace',fill:isIfft?'#10d9a0':'#6a8aaa','font-weight':'700'}));
+
+  // Axes
+  g.appendChild(svgEl('line',{x1:ucCX-ucR-6,y1:ucCY,x2:ucCX+ucR+6,y2:ucCY,stroke:'#1f3055','stroke-width':'1'}));
+  g.appendChild(svgEl('line',{x1:ucCX,y1:ucCY-ucR-6,x2:ucCX,y2:ucCY+ucR+6,stroke:'#1f3055','stroke-width':'1'}));
+  g.appendChild(svgEl('circle',{cx:ucCX,cy:ucCY,r:ucR,fill:'none',stroke:'#1f3055','stroke-width':'1.5'}));
+
+  // Active level's roots
+  const activeRoots=new Set();
+  if(s.level>=0&&s.level<lv){
+    const hl=1<<s.level;
+    for(let r=0;r<hl;r++) activeRoots.add(r*(showN/hl));
+  }
+
+  for(let ri=0;ri<showN;ri++){
+    const ang=-Math.PI/2+2*Math.PI*ri/showN*(isIfft?-1:1);
+    const rx=ucCX+ucR*Math.cos(ang), ry=ucCY+ucR*Math.sin(ang);
+    const isAct=activeRoots.has(ri);
+    g.appendChild(svgEl('line',{x1:ucCX,y1:ucCY,x2:rx,y2:ry,stroke:isAct?'rgba(246,185,59,.45)':'rgba(38,61,96,.5)','stroke-width':isAct?1.5:1}));
+    g.appendChild(svgEl('circle',{cx:rx,cy:ry,r:isAct?5:3,fill:isAct?'#f6b93b':'#141e35',stroke:isAct?'#f6b93b':'#1f3055','stroke-width':'1.5'}));
+    if(showN<=16){
+      const lx=ucCX+(ucR+11)*Math.cos(ang), ly=ucCY+(ucR+11)*Math.sin(ang)+3;
+      g.appendChild(svgTxt('ω^'+ri,{x:lx,y:ly,'text-anchor':'middle','font-size':'8','font-family':'IBM Plex Mono,monospace',fill:isAct?'#f6b93b':'#2a3d5a'}));
     }
   }
-  // legend / info
-  addText(svg, 300, 20, `n = ${n} roots of unity`, '#8b949e', 11, 'start');
-  addText(svg, 300, 36, `ωₙ = e^(2πi/n)`, '#58a6ff', 10, 'start');
-  addText(svg, 300, 52, `|ω| = 1  (on unit circle)`, '#8b949e', 10, 'start');
-  addText(svg, 300, 80, 'Cancellation Property:', '#d29922', 11, 'start');
-  addText(svg, 300, 96, `ω^(k+n/2) = −ωᵏ`, '#d29922', 10, 'start');
-  addText(svg, 300, 120, 'Halving Property:', '#3fb950', 11, 'start');
-  addText(svg, 300, 136, `(ωₙᵏ)² = ω_{n/2}^k`, '#3fb950', 10, 'start');
-}
 
-// ═══════════════════════════════════════════════════
-// SVG: COMPARISON CHART
-// ═══════════════════════════════════════════════════
-function drawComparison(degA, degB) {
-  const svg = document.getElementById('comparisonSvg');
-  clearSvg('comparisonSvg');
-  const W = 700, H = 200, padL = 60, padB = 40, padT = 20, padR = 20;
-  const chartW = W - padL - padR, chartH = H - padB - padT;
+  // Axis labels
+  g.appendChild(svgTxt('+1',{x:ucCX+ucR+10,y:ucCY+4,'font-size':'9',fill:'#3d5a7a','font-family':'IBM Plex Mono,monospace'}));
+  g.appendChild(svgTxt('-1',{x:ucCX-ucR-18,y:ucCY+4,'font-size':'9',fill:'#3d5a7a','font-family':'IBM Plex Mono,monospace'}));
+  g.appendChild(svgTxt('+i',{x:ucCX+4,y:ucCY-ucR-5,'font-size':'9',fill:'#3d5a7a','font-family':'IBM Plex Mono,monospace'}));
+  g.appendChild(svgTxt('-i',{x:ucCX+4,y:ucCY+ucR+13,'font-size':'9',fill:'#3d5a7a','font-family':'IBM Plex Mono,monospace'}));
 
-  const ns = [2, 4, 8, 16, 32, 64, 128, 256];
-  const naiveVals = ns.map(n => n * n);
-  const fftVals = ns.map(n => n * Math.log2(n) * 3);
-  const maxV = Math.max(...naiveVals);
+  // Properties annotation
+  const ay=ucCY+ucR+20;
+  g.appendChild(svgTxt('Cancellation: ω^(k+n/2) = −ω^k',{x:ucCX,y:ay,'text-anchor':'middle','font-size':'10.5','font-family':'IBM Plex Mono,monospace',fill:'#f0504a','font-weight':'700'}));
+  g.appendChild(svgTxt('Halving:  (ω_n^k)² = ω_{n/2}^k',{x:ucCX,y:ay+15,'text-anchor':'middle','font-size':'10.5','font-family':'IBM Plex Mono,monospace',fill:'#8b5cf6','font-weight':'700'}));
 
-  const xScale = n => padL + (Math.log2(n) - 1) / (Math.log2(256)) * chartW;
-  const yScale = v => padT + chartH - (v / maxV) * chartH;
-
-  // grid
-  addLine(svg, padL, padT, padL, padT + chartH, '#30363d', 1);
-  addLine(svg, padL, padT + chartH, padL + chartW, padT + chartH, '#30363d', 1);
-  addText(svg, padL - 6, padT + chartH + 14, '2', '#8b949e', 9, 'middle');
-  addText(svg, xScale(256), padT + chartH + 14, '256', '#8b949e', 9, 'middle');
-  addText(svg, padL + chartW / 2, padT + chartH + 26, 'n (polynomial size)', '#8b949e', 9, 'middle');
-  addText(svg, 14, padT + chartH / 2, 'Operations', '#8b949e', 9, 'middle');
-
-  // naive line
-  let d = ns.map(n => `${xScale(n)},${yScale(n*n)}`).join(' L');
-  addPolyline(svg, `M ${d}`, '#f85149', 2);
-  addText(svg, xScale(256) + 4, yScale(256*256), 'O(n²)', '#f85149', 10, 'start');
-
-  // fft line
-  d = ns.map(n => `${xScale(n)},${yScale(n*Math.log2(n)*3)}`).join(' L');
-  addPolyline(svg, `M ${d}`, '#3fb950', 2);
-  addText(svg, xScale(256) + 4, yScale(256*Math.log2(256)*3) - 4, 'O(n log n)', '#3fb950', 10, 'start');
-
-  // current point
-  const curN = nextPow2(degA + degB - 1);
-  if (curN >= 2 && curN <= 256) {
-    addCircle(svg, xScale(curN), yScale(curN*curN), 5, '#f85149', '#0a0e1a');
-    addCircle(svg, xScale(curN), yScale(curN*Math.log2(curN)*3), 5, '#3fb950', '#0a0e1a');
-    addLine(svg, xScale(curN), padT, xScale(curN), padT + chartH, '#58a6ff33', 1);
-    addText(svg, xScale(curN), padT - 4, `n=${curN}`, '#58a6ff', 9, 'middle');
+  // Phase-specific annotation
+  if(isIfft){
+    g.appendChild(svgEl('rect',{x:ucCX-100,y:ay+25,width:200,height:16,rx:3,fill:'rgba(16,217,160,.08)',stroke:'#10d9a0','stroke-width':'1'}));
+    g.appendChild(svgTxt('IFFT: ω̄ + divide by n',{x:ucCX,y:ay+36,'text-anchor':'middle','font-size':'10','font-family':'IBM Plex Mono,monospace',fill:'#10d9a0','font-weight':'700'}));
   }
-
-  addText(svg, padL + chartW / 2, padT + 10, 'Operations vs Polynomial Size', '#8b949e', 10, 'middle');
+  if(s.sub==='pointwise'||s.sub==='pointwiseK'){
+    g.appendChild(svgEl('rect',{x:ucCX-105,y:ay+25,width:210,height:16,rx:3,fill:'rgba(139,92,246,.1)',stroke:'#8b5cf6','stroke-width':'1'}));
+    g.appendChild(svgTxt('C[k] = A_eval[k] × B_eval[k]',{x:ucCX,y:ay+36,'text-anchor':'middle','font-size':'10','font-family':'IBM Plex Mono,monospace',fill:'#8b5cf6','font-weight':'700'}));
+  }
+  if(s.sub==='result'){
+    g.appendChild(svgTxt(`Naïve O(n²): ${stNaiveOps} ops`,{x:ucCX,y:ay+30,'text-anchor':'middle','font-size':'11','font-family':'IBM Plex Mono,monospace',fill:'#f0504a','font-weight':'700'}));
+    g.appendChild(svgTxt(`FFT O(n log n): ~${stFftOps} ops`,{x:ucCX,y:ay+46,'text-anchor':'middle','font-size':'11','font-family':'IBM Plex Mono,monospace',fill:'#10d9a0','font-weight':'700'}));
+    g.appendChild(svgTxt(`${(stNaiveOps/stFftOps).toFixed(1)}× speedup  ✓`,{x:ucCX,y:ay+62,'text-anchor':'middle','font-size':'12','font-family':'IBM Plex Mono,monospace',fill:'#f6b93b','font-weight':'700'}));
+  }
 }
 
-// ═══════════════════════════════════════════════════
-// POLY DISPLAY
-// ═══════════════════════════════════════════════════
-function polyStr(coeffs) {
-  if (!coeffs || !coeffs.length) return '0';
-  return coeffs.map((c, i) => {
-    if (Math.abs(c) < 1e-6) return '';
-    const sign = c < 0 ? '−' : (i > 0 ? '+' : '');
-    const abs = Math.abs(Math.round(c * 1000) / 1000);
-    if (i === 0) return `${c < 0 ? '−' : ''}${abs}`;
-    if (i === 1) return `${sign}${abs === 1 ? '' : abs}x`;
-    return `${sign}${abs === 1 ? '' : abs}x^${i}`;
-  }).filter(Boolean).join(' ') || '0';
-}
-
-function updatePolyDisplay(A, B, C) {
-  const el = document.getElementById('polyDisplay');
-  el.innerHTML = `
-    <div style="color:var(--accent)">A(x) = ${polyStr(A)}</div>
-    <div style="color:var(--purple)">B(x) = ${polyStr(B)}</div>
-    ${C ? `<div style="color:var(--green);margin-top:6px;font-size:15px;font-weight:700">C(x) = A·B = ${polyStr(C)}</div>` : '<div style="color:var(--text-muted)">C(x) = … (run algorithm)</div>'}
-  `;
-}
-
-// ═══════════════════════════════════════════════════
-// SVG HELPERS
-// ═══════════════════════════════════════════════════
-function clearSvg(id) { const s = document.getElementById(id); while (s.firstChild) s.removeChild(s.firstChild); }
-function addLine(svg, x1, y1, x2, y2, stroke, sw) {
-  const el = document.createElementNS('http://www.w3.org/2000/svg','line');
-  el.setAttribute('x1',x1);el.setAttribute('y1',y1);el.setAttribute('x2',x2);el.setAttribute('y2',y2);
-  el.setAttribute('stroke',stroke);el.setAttribute('stroke-width',sw);svg.appendChild(el);
-}
-function addCircle(svg, cx, cy, r, fill, stroke) {
-  const el = document.createElementNS('http://www.w3.org/2000/svg','circle');
-  el.setAttribute('cx',cx);el.setAttribute('cy',cy);el.setAttribute('r',r);
-  el.setAttribute('fill',fill);el.setAttribute('stroke',stroke);el.setAttribute('stroke-width','1.5');svg.appendChild(el);
-}
-function addText(svg, x, y, txt, fill, fs, anchor='middle') {
-  const el = document.createElementNS('http://www.w3.org/2000/svg','text');
-  el.setAttribute('x',x);el.setAttribute('y',y);el.setAttribute('fill',fill);
-  el.setAttribute('font-size',fs);el.setAttribute('text-anchor',anchor);
-  el.setAttribute('font-family','Consolas,monospace');el.textContent=txt;svg.appendChild(el);
-}
-function addPolyline(svg, d, stroke, sw) {
-  const el = document.createElementNS('http://www.w3.org/2000/svg','path');
-  el.setAttribute('d',d);el.setAttribute('fill','none');
-  el.setAttribute('stroke',stroke);el.setAttribute('stroke-width',sw);svg.appendChild(el);
-}
-
-// ═══════════════════════════════════════════════════
-// MISC
-// ═══════════════════════════════════════════════════
+/* ================================================================
+   MISC UI
+   ================================================================ */
 function toggleLecture() {
-  const body = document.getElementById('lectureBody');
-  const btn = document.getElementById('collapseBtn');
-  const hidden = body.classList.toggle('hidden');
-  btn.textContent = hidden ? 'Expand' : 'Collapse';
+  const s=document.getElementById('lectureStrip');
+  s.classList.toggle('open');
+}
+function toggleEdu(btn) {
+  btn.classList.toggle('open');
+  btn.nextElementSibling.classList.toggle('open');
 }
 
-document.getElementById('speedSlider').addEventListener('input', function() {
-  document.getElementById('speedLabel').textContent = parseFloat(this.value).toFixed(2) + '×';
-});
-
-// Init
+/* ================================================================
+   INIT
+   ================================================================ */
 buildPseudo();
-drawIdleButterfly();
-drawUnitCircle(8, []);
-drawComparison(2, 2);
-updatePolyDisplay([1,2],[3,4],null);
+drawIdle();
+document.getElementById('dispA').textContent = 'A(x) = ' + polyStr(PRESETS[0].a);
+document.getElementById('dispB').textContent = 'B(x) = ' + polyStr(PRESETS[0].b);
+
+// Redraw on resize
+window.addEventListener('resize', () => { if(curIdx>=0) draw(curIdx); else drawIdle(); });
 </script>
 </body>
 </html>
