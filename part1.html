@@ -165,7 +165,7 @@ input[type="text"], input[type="number"], textarea,
 
 .lecture-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 14px;
   padding: 0 20px 18px;
 }
@@ -399,7 +399,10 @@ input[type="range"]:hover::-webkit-slider-thumb {
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   padding: 10px 12px; font-size: 11px; color: var(--txt2);
   line-height: 1.7; min-height: 54px;
+  transition: background .25s, border-color .25s;
 }
+@keyframes expl-flash { 0%{background:rgba(61,169,252,.13);border-color:var(--acc)} 100%{background:var(--bg0);border-color:var(--acc)} }
+.explanation.flash { animation: expl-flash .4s ease-out; }
 
 .history-wrap { max-height: 150px; overflow-y: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
 .history-table { width: 100%; border-collapse: collapse; font-size: 10px; }
@@ -486,10 +489,16 @@ svg.canvas { width: 100%; height: 100%; display: block; }
 .poly-term { display: flex; align-items: center; gap: 6px; }
 .poly-label { font-size: 9px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--txt3); }
 
+@media (max-width: 1400px) {
+  .lecture-grid { grid-template-columns: repeat(3, 1fr); }
+}
 @media (max-width: 980px) {
   .tool-body { grid-template-columns: 1fr; }
   .left-panel { max-height: 55vh; order: 2; }
   .right-panel { order: 1; }
+  .lecture-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
   .lecture-grid { grid-template-columns: 1fr; }
 }
 </style>
@@ -563,6 +572,49 @@ svg.canvas { width: 100%; height: 100%; display: block; }
     ω = ω · ω_n
       </div>
       <p>Recurrence: T(n) = 2T(n/2) + Θ(n) → <strong style="color:var(--ylw)">Θ(n log n)</strong> by Master Theorem Case 2.</p>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Divide &amp; Conquer Analysis</div>
+      <p>The key algebraic identity that makes FFT work:</p>
+      <div class="concept-box">
+        <strong>A(x) = A_even(x²) + x · A_odd(x²)</strong><br>
+        At ωₙᵏ: A(ωₙᵏ) = A_even(ω_{n/2}ᵏ) + ωₙᵏ · A_odd(ω_{n/2}ᵏ)<br>
+        At ωₙ^(k+n/2): A(ωₙ^(k+n/2)) = A_even(ω_{n/2}ᵏ) − ωₙᵏ · A_odd(ω_{n/2}ᵏ)
+      </div>
+      <p style="margin-top:7px"><strong>Why this is powerful:</strong> the second half of the DFT outputs is just the first half with a sign flip — no extra work! Each level re-uses the <em>same</em> sub-DFT results twice via the <strong style="color:var(--ylw)">cancellation property</strong> ω^(k+n/2) = −ω^k.</p>
+      <div class="concept-box grn" style="margin-top:7px">
+        <strong>Master Theorem:</strong> T(n) = 2T(n/2) + Θ(n)<br>
+        a=2, b=2, f(n)=Θ(n), log_b(a)=1 → Case 2: <strong>T(n) = Θ(n log n)</strong>
+      </div>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Inverse FFT &amp; Interpolation</div>
+      <p>The DFT matrix Dₙ has entries Dₙ[j,k] = ω^(jk). Its inverse is:</p>
+      <div class="concept-box">
+        <strong>D⁻¹ = (1/n) · D̄</strong>  (conjugate, scaled)<br>
+        IFFT = conjugate twiddle ω̄ = e^(−2πi/n), then divide by n
+      </div>
+      <p style="margin-top:7px">So IFFT is <strong>identical code</strong> to FFT — just negate the exponent sign and scale. This is why the 3-step pipeline closes perfectly:</p>
+      <div class="concept-box grn" style="margin-top:7px">
+        <strong>Uniqueness guarantee:</strong> n points uniquely determine a polynomial of degree ≤ n−1. Using n-th roots of unity as evaluation points + DFT = fast interpolation. IFFT recovers the <em>unique</em> degree-(n−1) polynomial passing through all n point-values.
+      </div>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Applications &amp; Variants</div>
+      <p>FFT is one of the most impactful algorithms ever discovered (Cooley &amp; Tukey, 1965):</p>
+      <div class="concept-box">
+        <strong>Signal Processing:</strong> audio compression (MP3), spectrum analysis — FFT runs in real-time on hardware chips<br>
+        <strong>Image:</strong> JPEG uses DCT (Discrete Cosine Transform) — a variant of FFT<br>
+        <strong>Large Integer ×:</strong> multiply 1,000-digit numbers in O(n log n log log n)<br>
+        <strong>Neural Networks:</strong> convolution in CNNs via FFT — same butterfly math
+      </div>
+      <div class="concept-box grn" style="margin-top:7px">
+        <strong>NTT (Number Theoretic Transform):</strong> FFT over a finite field ℤ_p instead of ℂ — exact integer arithmetic, used in cryptography (lattice-based schemes, polynomial multiplication in CRYSTALS-Kyber)<br>
+        <strong>Complexity lower bound:</strong> Ω(n log n) for DFT — FFT is asymptotically optimal!
+      </div>
     </div>
 
   </div>
@@ -920,58 +972,62 @@ function buildSteps() {
 
   steps = [];
   let mults = 0, adds = 0;
+  const Apad = [...A,...Array(N-A.length).fill(0)];
+  const Bpad = [...B,...Array(N-B.length).fill(0)];
 
   // Step 0: Input
   steps.push({ phase:'Input', sub:'init', pcLine:0, mults:0, adds:0, level:-1,
-    expl:`INPUT: A(x) = ${polyStr(A)}  |  B(x) = ${polyStr(B)}.\nNaïve needs ${naiveOps} ops (O(n²)).  FFT needs ~${fftOps} ops (O(n log n)).\nPadding both to n=${N} (next power of 2 ≥ ${resLen}).`, detail:'Input & pad' });
+    expl:`Goal: compute C(x) = A(x) × B(x) in O(n log n) instead of naïve O(n²).\n→ A = [${A.join(', ')}]  (degree ${A.length-1}, ${A.length} coefficients)\n→ B = [${B.join(', ')}]  (degree ${B.length-1}, ${B.length} coefficients)\n→ deg(C) = deg(A) + deg(B) = ${A.length-1+B.length-1}  →  ${resLen} coefficients needed\n→ Naïve cost: ${naiveOps} multiplications  (O(n²) = ${A.length} × ${B.length})\n→ FFT target: ~${fftOps} ops  (O(n log n))  →  ${(naiveOps/fftOps).toFixed(1)}× faster`, detail:'Input & pad' });
 
   steps.push({ phase:'Setup', sub:'split', pcLine:2, mults:0, adds:0, level:-1,
-    expl:`PAD: A → [${[...A,...Array(N-A.length).fill(0)].join(', ')}]\nPAD: B → [${[...B,...Array(N-B.length).fill(0)].join(', ')}]\nThen split by even/odd index — the divide step of divide-and-conquer.`, detail:'Zero-pad' });
+    expl:`Zero-pad both polynomials to length n = ${N}  (next power of 2 ≥ ${resLen}).\n→ n = next_pow2(${resLen}) = ${N}  →  ${lv} FFT levels\n→ A_pad = [${Apad.join(', ')}]\n→ B_pad = [${Bpad.join(', ')}]\n→ WHY power of 2: enables perfect even/odd splitting at every level\n→ Padding with zeros does NOT change the polynomial value`, detail:'Zero-pad' });
 
   // FFT(A) levels
   steps.push({ phase:'FFT(A)', sub:'fftA', pcLine:3, mults:0, adds:0, level:-1,
-    expl:`Starting FFT on polynomial A. We evaluate A at all ${N} roots of unity ω⁰, ω¹, …, ω^${N-1}.\nThis uses the Cooley-Tukey recursive butterfly structure across ${lv} levels.`, detail:'FFT(A) start' });
+    expl:`Evaluate A_pad at all ${N} roots of unity: ω⁰, ω¹, …, ω^${N-1}.\n→ ωₙ = e^(2πi/${N}) = cos(2π/${N}) + i·sin(2π/${N})\n→ Strategy: A(x) = A_even(x²) + x · A_odd(x²)  — split by even/odd index\n→ A_even = [${Apad.filter((_,i)=>i%2===0).join(', ')}]\n→ A_odd  = [${Apad.filter((_,i)=>i%2===1).join(', ')}]\n→ ${lv} levels of recursion,  ${N/2} butterflies per level,  total: ${lv*(N/2)} butterflies`, detail:'FFT(A) start' });
   for (let l=0; l<lv; l++) {
     const bsz=2<<l, half=bsz>>1, blocks=N/bsz;
     mults+=N/2; adds+=N;
     steps.push({ phase:`FFT(A) Lv ${l+1}/${lv}`, sub:'fftA', pcLine: l===0?12:16, mults, adds, level:l,
-      expl:`FFT(A) Level ${l+1}/${lv}: block size=${bsz}, ${blocks} blocks, ${N/2} butterflies.\nEach butterfly: t = ω^k · a_odd[k],  a[k] = a_even[k]+t,  a[k+n/2] = a_even[k]−t.\nTwiddle factor ω = e^(2πi/${bsz}) advances each iteration.`, detail:`FFT(A) Lv ${l+1}` });
+      expl:`FFT(A) — Level ${l+1}/${lv}: combining ${blocks} block(s) of size ${bsz}.\n→ Twiddle base: ω = e^(2πi/${bsz})  (primitive ${bsz}-th root of unity)\n→ Each butterfly at index k:\n      t        = ω^k × a_odd[k]   ← twiddle factor\n      a[k]     = a_even[k] + t    ← upper output\n      a[k+${half}] = a_even[k] − t    ← lower output  (uses ω^(k+n/2) = −ω^k)\n→ Butterflies this level: ${N/2}  |  Cumulative ops so far: ${mults+adds}`, detail:`FFT(A) Lv ${l+1}` });
   }
 
   // FFT(B) levels
   steps.push({ phase:'FFT(B)', sub:'fftB', pcLine:4, mults, adds, level:-1,
-    expl:`Now running identical FFT on polynomial B. Same ${N} roots of unity, same ${lv}-level butterfly structure.\nAfter this, B is fully evaluated in point-value representation.`, detail:'FFT(B) start' });
+    expl:`Now evaluate B_pad at the same ${N} roots of unity as A.\n→ Identical Cooley-Tukey butterfly structure, ${lv} levels\n→ B_even = [${Bpad.filter((_,i)=>i%2===0).join(', ')}]\n→ B_odd  = [${Bpad.filter((_,i)=>i%2===1).join(', ')}]\n→ After this step: both A and B are in point-value representation\n→ Point-value form makes multiplication trivially O(n)`, detail:'FFT(B) start' });
   for (let l=0; l<lv; l++) {
+    const bsz=2<<l, half=bsz>>1, blocks=N/bsz;
     mults+=N/2; adds+=N;
     steps.push({ phase:`FFT(B) Lv ${l+1}/${lv}`, sub:'fftB', pcLine:16, mults, adds, level:l,
-      expl:`FFT(B) Level ${l+1}/${lv}: identical butterfly structure as FFT(A).\nBlock size=${2<<l}, ${N/2} complex multiplications at this level.`, detail:`FFT(B) Lv ${l+1}` });
+      expl:`FFT(B) — Level ${l+1}/${lv}: same butterfly pass as FFT(A).\n→ Twiddle base: ω = e^(2πi/${bsz})  (primitive ${bsz}-th root of unity)\n→ Combining ${blocks} block(s) of size ${bsz},  ${N/2} butterflies\n→ Each butterfly: t = ω^k × b_odd[k]\n      b[k]     = b_even[k] + t\n      b[k+${half}] = b_even[k] − t\n→ Cumulative ops so far: ${mults+adds}`, detail:`FFT(B) Lv ${l+1}` });
   }
 
   // Pointwise
   mults+=N;
   steps.push({ phase:'Pointwise ×', sub:'pointwise', pcLine:5, mults, adds, level:lv,
-    expl:`POINTWISE MULTIPLY: C[k] = A_eval[k] × B_eval[k]  for k = 0…${N-1}.\nThis is O(n) = ${N} complex multiplications — the key efficient step.\nCompare: naïve needed ${naiveOps} multiplications across all coefficient pairs.`, detail:'Pointwise ×' });
-  for (let k=0; k<Math.min(N,4); k++) {
+    expl:`Pointwise multiply: Y_C[k] = Y_A[k] × Y_B[k]  for k = 0 … ${N-1}.\n→ Y_A[k] = A(ωₙᵏ),  Y_B[k] = B(ωₙᵏ)  are complex DFT values\n→ Y_C[k] = A(ωₙᵏ) × B(ωₙᵏ) = C(ωₙᵏ)  — multiplication at a point\n→ This step is O(n) = ${N} complex multiplications  (each = 4 real ops)\n→ WHY it works: evaluation is a ring homomorphism: f(ω)·g(ω) = (fg)(ω)\n→ Naïve needed ${naiveOps} mults across all pairs — pointwise needs only ${N}`, detail:'Pointwise ×' });
+  for (let k=0; k<N; k++) {
     steps.push({ phase:'Pointwise ×', sub:'pointwiseK', pcLine:6, mults:mults+k, adds, level:lv,
-      expl:`k=${k}: C[${k}] = A_eval[${k}] × B_eval[${k}] ✓`, detail:`PW k=${k}` });
+      expl:`k = ${k}:  computing C[${k}] = Y_A[${k}] × Y_B[${k}]\n→ Evaluation point: ωₙ^${k} = e^(2πi·${k}/${N})\n→ Y_A[${k}] and Y_B[${k}] are complex DFT values at this frequency\n→ Y_C[${k}] = Y_A[${k}] × Y_B[${k}]  ✓\n→ Progress: ${k+1} / ${N} pointwise products done`, detail:`PW k=${k}` });
   }
 
   // IFFT
   steps.push({ phase:'IFFT', sub:'ifft', pcLine:7, mults, adds, level:-1,
-    expl:`INVERSE FFT: same butterfly structure but twiddle = ω⁻¹ = e^(−2πi/n), divide by n=${N}.\nThis recovers the coefficient representation from point values — the interpolation step.`, detail:'IFFT start' });
+    expl:`Inverse FFT: recover coefficients of C from point-values Y_C.\n→ Same butterfly structure as FFT, but twiddle = ω⁻¹ = e^(−2πi/${N})\n→ The DFT matrix D satisfies D·D̄ = ${N}·I  →  D⁻¹ = (1/${N})·D̄\n→ After butterflies: divide all ${N} values by n = ${N}\n→ This is the INTERPOLATION step — recovers unique polynomial through ${N} points\n→ IFFT cost: ${lv} levels × ${N/2} butterflies = ${lv*(N/2)} ops`, detail:'IFFT start' });
   for (let l=0; l<lv; l++) {
+    const bsz=2<<l, half=bsz>>1, blocks=N/bsz;
     mults+=N/2; adds+=N;
     steps.push({ phase:`IFFT Lv ${l+1}/${lv}`, sub:'ifft', pcLine:16, mults, adds, level:l,
-      expl:`IFFT Level ${l+1}/${lv}: conjugate twiddle ω̄ = e^(−2πi/${2<<l}).\nSame butterfly math — addition and subtraction — but angle is negated.\nFinal step divides all values by n=${N}.`, detail:`IFFT Lv ${l+1}` });
+      expl:`IFFT — Level ${l+1}/${lv}: conjugate butterfly pass.\n→ Twiddle: ω̄ = e^(−2πi/${bsz})  (negative angle = inverse direction)\n→ Combining ${blocks} block(s) of size ${bsz},  ${N/2} butterflies\n→ Each butterfly: t = ω̄^k × c_odd[k]\n      c[k]     = c_even[k] + t\n      c[k+${half}] = c_even[k] − t\n→ After final level: divide all values by n = ${N}  →  exact coefficients\n→ Cumulative ops so far: ${mults+adds}`, detail:`IFFT Lv ${l+1}` });
   }
 
   // Result
   steps.push({ phase:'Done ✓', sub:'result', pcLine:8, mults, adds, level:lv+1,
-    expl:`RESULT: C(x) = ${polyStr(C)}\nCoefficients: [${C.map(v=>Math.round(v*100)/100).join(', ')}]\nFFT used ~${fftOps} ops vs ${naiveOps} naïve → ${(naiveOps/fftOps).toFixed(1)}× speedup for n=${N}.`,
+    expl:`Algorithm complete — polynomial product computed! ✓\n→ C(x) = ${polyStr(C)}\n→ Coefficients: [${C.map(v=>Math.round(v*100)/100).join(', ')}]\n→ Total butterflies: ${(N/2)*lv*3}  (FFT(A) + FFT(B) + IFFT,  ${lv}×${N/2} each)\n→ Total ops: ~${fftOps}  vs  naïve ${naiveOps}  →  ${(naiveOps/fftOps).toFixed(1)}× speedup\n→ Complexity: O(n log n) = O(${N} · ${lv}) beats O(n²) = O(${naiveOps}) ✓`,
     detail:'Done ✓', done:true });
 
   // stats
-  document.getElementById('statButterflies').textContent = (N/2)*lv;
+  document.getElementById('statButterflies').textContent = (N/2)*lv*3;
   document.getElementById('statMults').textContent = N;
   document.getElementById('statLevels').textContent = lv;
   document.getElementById('statSpeedup').textContent = (naiveOps/fftOps).toFixed(1)+'×';
@@ -990,7 +1046,11 @@ function applyStep(i) {
   if (i<0||i>=steps.length) return;
   const s = steps[i];
   setCounter(i+1, steps.length);
-  document.getElementById('stepExplain').textContent = s.expl;
+  const exEl = document.getElementById('stepExplain');
+  exEl.innerHTML = (s.expl || '').replace(/\n/g, '<br>');
+  exEl.classList.remove('flash');
+  void exEl.offsetWidth;
+  exEl.classList.add('flash');
   hlLine(s.pcLine);
   draw(i);
   if (s.done) {
@@ -1036,7 +1096,7 @@ function pauseAnim() {
 function resetTool(full=true) {
   playing=false; clearTimeout(timer); curIdx=-1; steps=[];
   setStatus('idle'); setCounter(0,0);
-  document.getElementById('stepExplain').textContent = 'Enter two polynomials and press Build Steps to begin.';
+  document.getElementById('stepExplain').innerHTML = 'Enter two polynomials and press <strong>Build Steps</strong> to begin.';
   document.getElementById('btnStep').disabled=true;
   document.getElementById('btnPlay').disabled=true;
   document.getElementById('btnPause').disabled=true;
