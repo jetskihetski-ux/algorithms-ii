@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Part 3 — Convex Hull | BSD 404</title>
+<style>
+:root {
+  --bg0:#0b0f1a;--bg1:#0f1729;--bg2:#141e35;--bg3:#192340;--bg4:#1e2a4a;
+  --border:#1f2e50;--border2:#27395e;
+  --txt:#e2eaf8;--txt2:#8da3c4;--txt3:#4a6080;
+  --acc:#3da9fc;--acc2:#8b5cf6;--grn:#10d9a0;--red:#f0504a;--ylw:#f6b93b;--org:#f0803c;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:14px;
+  --shadow-sm:0 1px 4px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.03);
+  --shadow-md:0 4px 16px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.04);
+  --glow-acc:0 0 0 1px rgba(61,169,252,.25),0 0 16px rgba(61,169,252,.08);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:13px;}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg0);color:var(--txt);min-height:100vh;display:flex;flex-direction:column;overflow:hidden;height:100vh;}
+code,.pseudocode,.pc-code,.pc-num,input[type="text"],input[type="number"],textarea,.stat-val,.step-counter,.explanation,.history-table{font-family:'IBM Plex Mono','Cascadia Code','Fira Code',monospace;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg1);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+.top-header{background:linear-gradient(90deg,#0d1427 0%,#0b1122 100%);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:20px;height:50px;flex-shrink:0;}
+.brand{display:flex;align-items:center;gap:9px;flex-shrink:0;}
+.brand-diamond{width:7px;height:7px;background:var(--acc);transform:rotate(45deg);box-shadow:0 0 8px rgba(61,169,252,.6);}
+.brand-name{font-size:12px;font-weight:700;color:var(--txt);letter-spacing:.2px;}
+.part-nav{display:flex;gap:4px;margin-left:auto;}
+.part-link{padding:5px 10px;border-radius:var(--radius-sm);font-size:10px;font-weight:600;letter-spacing:.3px;text-decoration:none;color:var(--txt3);transition:color .15s,background .15s;}
+.part-link:hover{color:var(--acc);background:rgba(61,169,252,.06);}
+.part-link.active{color:var(--acc);background:rgba(61,169,252,.1);}
+
+.lecture-strip{background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;overflow:hidden;max-height:38px;transition:max-height .3s ease;}
+.lecture-strip.open{max-height:340px;}
+.lecture-toggle{width:100%;background:none;border:none;padding:10px 20px;color:var(--txt2);cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;text-align:left;display:flex;align-items:center;gap:10px;}
+.lecture-toggle:hover{color:var(--acc);}
+.lecture-toggle-arrow{margin-left:auto;font-size:9px;transition:transform .2s;}
+.lecture-strip.open .lecture-toggle-arrow{transform:rotate(180deg);}
+.lecture-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;padding:0 20px 18px;}
+.lec-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-md);padding:13px 14px;}
+.lec-card-title{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--acc);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.lec-card-title::before{content:'';display:inline-block;width:3px;height:9px;border-radius:2px;background:var(--acc);flex-shrink:0;}
+.lec-card p,.lec-card li{font-size:11px;color:var(--txt2);line-height:1.75;}
+.concept-box{background:rgba(61,169,252,.05);border-left:3px solid var(--acc);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:8px 11px;margin:8px 0;font-size:10.5px;line-height:1.65;color:var(--txt2);}
+.concept-box.grn{border-color:var(--grn);background:rgba(16,217,160,.05);}
+.concept-box.ylw{border-color:var(--ylw);background:rgba(246,185,59,.05);}
+.concept-box.pur{border-color:var(--acc2);background:rgba(139,92,246,.05);}
+.lec-code{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--txt2);line-height:1.85;margin:8px 0;}
+.lec-code .kw{color:var(--acc2);}.lec-code .fn{color:var(--acc);}.lec-code .cm{color:var(--txt3);font-style:italic;}
+
+.tool-body{display:grid;grid-template-columns:420px 1fr;flex:1;min-height:0;overflow:hidden;}
+.left-panel{background:var(--bg1);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:12px;}
+.section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;flex-shrink:0;box-shadow:var(--shadow-sm);}
+.section:focus-within{box-shadow:var(--glow-acc);}
+.section-header{background:var(--bg3);padding:7px 12px;font-family:'Inter',system-ui,sans-serif;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--txt3);border-bottom:1px solid var(--border);}
+.section-header.grn{color:var(--grn);}
+.section-header.ylw{color:var(--ylw);}
+.section-header.pur{color:var(--acc2);}
+.section-body{padding:10px 12px;}
+label{display:block;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);margin-bottom:5px;}
+input[type="text"],input[type="number"],textarea{width:100%;background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;color:var(--txt);font-size:12px;outline:none;transition:border-color .15s;}
+input:focus,textarea:focus{border-color:var(--acc);}
+textarea{resize:vertical;min-height:80px;line-height:1.6;}
+
+.mode-tabs{display:flex;gap:0;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;}
+.mode-tab{flex:1;padding:8px 4px;text-align:center;font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;cursor:pointer;color:var(--txt3);transition:all .15s;}
+.mode-tab:hover{color:var(--acc);background:rgba(61,169,252,.06);}
+.mode-tab.active{background:rgba(61,169,252,.12);color:var(--acc);}
+
+.presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.preset-btn{padding:4px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:9px;font-weight:600;color:var(--txt3);cursor:pointer;transition:all .15s;font-family:'Inter',system-ui,sans-serif;}
+.preset-btn:hover{color:var(--acc);border-color:var(--acc);}
+.preset-btn.active{background:rgba(61,169,252,.1);border-color:var(--acc);color:var(--acc);}
+
+.speed-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.speed-label-txt{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);white-space:nowrap;}
+.speed-val{font-size:10px;color:var(--acc);min-width:38px;text-align:right;}
+input[type="range"]{flex:1;accent-color:var(--acc);}
+.ctrl-row{display:flex;gap:5px;flex-wrap:wrap;}
+.ctrl-btn{padding:6px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:10px;font-weight:600;color:var(--txt2);cursor:pointer;transition:all .15s;font-family:'Inter',system-ui,sans-serif;}
+.ctrl-btn:hover:not(:disabled){background:rgba(61,169,252,.1);border-color:var(--acc);color:var(--acc);}
+.ctrl-btn:disabled{opacity:.35;cursor:not-allowed;}
+.ctrl-btn.primary{background:rgba(61,169,252,.12);border-color:var(--acc);color:var(--acc);}
+.status-row{display:flex;align-items:center;gap:10px;margin-top:8px;}
+.badge{padding:3px 10px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.badge-idle{background:rgba(74,96,128,.15);color:var(--txt3);}
+.badge-ready{background:rgba(61,169,252,.15);color:var(--acc);}
+.badge-playing{background:rgba(16,217,160,.15);color:var(--grn);}
+.badge-paused{background:rgba(246,185,59,.15);color:var(--ylw);}
+.badge-done{background:rgba(16,217,160,.2);color:var(--grn);}
+.step-counter{font-size:10px;color:var(--txt3);margin-left:auto;}
+
+.pseudocode{background:var(--bg0);border-radius:var(--radius-sm);padding:7px 5px;max-height:160px;overflow-y:auto;font-size:11px;}
+.pc-line{display:flex;gap:8px;padding:2px 6px;border-radius:3px;white-space:pre;transition:background .15s;position:relative;}
+.pc-line:hover{background:rgba(61,169,252,.06);}
+.pc-line.active{background:rgba(61,169,252,.14);box-shadow:inset 3px 0 0 var(--acc);}
+.pc-num{color:var(--txt3);min-width:18px;text-align:right;user-select:none;}
+.pc-code{color:var(--txt2);}
+.pc-line.active .pc-code{color:var(--acc);}
+.pc-line[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:calc(100% + 8px);top:0;background:var(--bg4);border:1px solid var(--border2);padding:6px 10px;border-radius:var(--radius-sm);font-size:10px;font-family:'Inter',system-ui,sans-serif;color:var(--txt);white-space:normal;max-width:210px;z-index:300;pointer-events:none;box-shadow:var(--shadow-md);line-height:1.5;}
+
+.explanation{background:var(--bg0);border-left:3px solid var(--acc);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:10px 12px;font-size:11px;color:var(--txt2);line-height:1.7;min-height:54px;transition:background .25s,border-color .25s;}
+@keyframes expl-flash{0%{background:rgba(61,169,252,.13);border-color:var(--acc)}100%{background:var(--bg0);border-color:var(--acc)}}
+.explanation.flash{animation:expl-flash .4s ease-out;}
+
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+.stat-box{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 6px;text-align:center;}
+.stat-val{display:block;font-size:14px;font-weight:700;color:var(--acc);}
+.stat-lbl{display:block;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);margin-top:3px;font-family:'Inter',system-ui,sans-serif;}
+
+.history-wrap{max-height:150px;overflow-y:auto;border-radius:var(--radius-sm);border:1px solid var(--border);}
+.history-table{width:100%;border-collapse:collapse;font-size:10px;}
+.history-table th{background:var(--bg3);padding:6px 8px;text-align:left;color:var(--txt3);font-family:'Inter',system-ui,sans-serif;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;position:sticky;top:0;}
+.history-table td{padding:4px 8px;border-bottom:1px solid rgba(31,46,80,.6);color:var(--txt2);cursor:pointer;transition:background .12s;}
+.history-table tr:hover td{background:rgba(61,169,252,.06);color:var(--txt);}
+.history-table tr.current td{background:rgba(61,169,252,.1);color:var(--acc);}
+
+.edu-toggle{width:100%;background:linear-gradient(90deg,var(--bg3) 0%,rgba(25,35,64,.5) 100%);border:none;border-bottom:1px solid var(--border);padding:10px 13px;color:var(--txt2);cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;text-align:left;display:flex;justify-content:space-between;align-items:center;transition:color .18s;}
+.edu-toggle:hover{color:var(--acc);}
+.edu-toggle .arrow{transition:transform .2s;font-size:10px;}
+.edu-toggle.open .arrow{transform:rotate(180deg);}
+.edu-body{padding:13px;font-family:'Inter',system-ui,sans-serif;font-size:11px;color:var(--txt2);line-height:1.75;display:none;}
+.edu-body.open{display:block;}
+.edu-body h4{font-size:11px;font-weight:700;color:var(--txt);margin:11px 0 5px;}
+.cmp-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;}
+.cmp-box{background:var(--bg0);border-radius:var(--radius-sm);padding:9px;text-align:center;border:1px solid var(--border);}
+.cmp-box .cmp-lbl{font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:4px;}
+.cmp-box .cmp-val{font-size:17px;font-weight:700;}
+
+.right-panel{display:flex;flex-direction:column;background:var(--bg0);overflow:hidden;}
+.viz-header{padding:11px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,var(--bg1) 0%,rgba(15,23,41,.8) 100%);flex-shrink:0;}
+.viz-title{font-family:'Inter',system-ui,sans-serif;font-size:12px;font-weight:700;color:var(--txt);}
+.legend{display:flex;gap:12px;margin-left:auto;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:5px;font-family:'Inter',system-ui,sans-serif;font-size:9px;font-weight:500;color:var(--txt2);}
+.legend-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0;}
+
+.viz-area{flex:1;position:relative;overflow:hidden;}
+svg.canvas{width:100%;height:100%;display:block;}
+.viz-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--txt3);font-family:'Inter',system-ui,sans-serif;font-size:11px;letter-spacing:.5px;pointer-events:none;user-select:none;}
+.viz-placeholder .ph-icon{font-size:40px;opacity:.2;}
+.viz-placeholder .ph-text{text-align:center;line-height:1.8;opacity:.45;}
+
+@keyframes node-glow{0%,100%{filter:drop-shadow(0 0 4px currentColor)}50%{filter:drop-shadow(0 0 14px currentColor)}}
+.anim-glow{animation:node-glow 1.4s ease-in-out infinite;}
+.viz-node{transition:fill .2s,stroke .2s,r .2s,opacity .2s;}
+
+.hull-strip{background:var(--bg1);border-top:1px solid var(--border);padding:9px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;flex-shrink:0;min-height:38px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+
+@media(max-width:1400px){.lecture-grid{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:980px){.tool-body{grid-template-columns:1fr;}.left-panel{max-height:55vh;order:2;}.right-panel{order:1;}.lecture-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.lecture-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header class="top-header">
+  <div class="brand">
+    <span class="brand-diamond"></span>
+    <span class="brand-name">BSD 404 — Algorithms II</span>
+  </div>
+  <nav class="part-nav">
+    <a class="part-link" href="part1.html">Part 1 — FFT</a>
+    <a class="part-link" href="part2.html">Part 2 — CRT &amp; RSA</a>
+    <a class="part-link active" href="part3.html">Part 3 — Convex Hull</a>
+    <a class="part-link" href="part4.html">Part 4 — Set Cover</a>
+  </nav>
+</header>
+
+<div class="lecture-strip" id="lectureStrip">
+  <button class="lecture-toggle" onclick="toggleLecture()">
+    <span>📐</span>
+    <span>Lecture Notes — Convex Hull Algorithms (CLO-4)</span>
+    <span class="lecture-toggle-arrow">▼</span>
+  </button>
+  <div class="lecture-grid">
+
+    <div class="lec-card">
+      <div class="lec-card-title">What is a Convex Hull?</div>
+      <p>The <em>convex hull</em> of a point set S is the smallest convex polygon that contains all points in S — the "rubber band stretched around the points."</p>
+      <div class="concept-box">
+        <strong>A set is convex</strong> if for any two points A, B ∈ S, the entire line segment AB ⊆ S.<br>
+        <strong>Key property:</strong> hull vertices are always a subset of the original points — interior points are never hull vertices.
+      </div>
+      <p style="margin-top:7px">Applications: collision detection, path planning, GIS, pattern recognition, alpha shapes, gift packing.</p>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Cross Product Orientation Test</div>
+      <p>The orientation of three ordered points O→A→B determines everything:</p>
+      <div class="concept-box">
+        <strong>cross(O, A, B) = (A.x−O.x)·(B.y−O.y) − (A.y−O.y)·(B.x−O.x)</strong><br>
+        &gt; 0 : left turn (counterclockwise) — B is left of OA ✓<br>
+        = 0 : collinear<br>
+        &lt; 0 : right turn (clockwise) — B is right of OA ✗
+      </div>
+      <p style="margin-top:7px">This O(1) test is the core primitive for both Graham Scan and Jarvis March. No trigonometry needed — pure arithmetic.</p>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Graham Scan — O(n log n)</div>
+      <div class="lec-code">
+<span class="fn">GRAHAM_SCAN</span>(pts):
+  pivot = <span class="fn">lowest_y</span>(pts)   <span class="cm">// anchor</span>
+  sort pts by polar angle from pivot
+  stack = [pivot, pts[0]]
+  <span class="kw">for</span> p <span class="kw">in</span> remaining pts:
+    <span class="kw">while</span> cross(s[-2],s[-1],p) ≤ 0:
+      stack.pop()  <span class="cm">// right turn → off hull</span>
+    stack.push(p)
+  <span class="kw">return</span> stack  <span class="cm">// CCW hull</span>
+      </div>
+      <p>Stack invariant: at all times, the stack forms a valid CCW convex chain. Each point is pushed/popped at most once → O(n) scan after O(n log n) sort.</p>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Jarvis March — O(nh)</div>
+      <div class="lec-code">
+<span class="fn">JARVIS</span>(pts):
+  start = <span class="fn">leftmost</span>(pts)
+  hull = [];  cur = start
+  <span class="kw">repeat</span>:
+    hull.append(cur)
+    cand = pts[0]
+    <span class="kw">for</span> p <span class="kw">in</span> pts:
+      <span class="kw">if</span> cross(cur, cand, p) &gt; 0:
+        cand = p   <span class="cm">// more CCW</span>
+    cur = cand
+  <span class="kw">until</span> cur == start
+  <span class="kw">return</span> hull
+      </div>
+      <p>Each of the h hull vertices requires one O(n) scan. Total: O(nh). Best when h ≪ n (few hull vertices). Worst case O(n²) when all points on hull.</p>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Comparison &amp; Lower Bound</div>
+      <div class="concept-box ylw">
+        <strong>Ω(n log n) lower bound:</strong> sorting reduces to convex hull — any hull algorithm implies a sort, so no deterministic algorithm can beat O(n log n).
+      </div>
+      <div class="concept-box grn" style="margin-top:7px">
+        <strong>Graham:</strong> O(n log n) always — best for large h<br>
+        <strong>Jarvis:</strong> O(nh) — best when h is small (h = O(log n))<br>
+        <strong>Chan's (1996):</strong> O(n log h) — optimal output-sensitive algorithm combining both ideas
+      </div>
+      <p style="margin-top:7px">In practice, Graham Scan is preferred due to its predictable performance and cache-friendly stack operations.</p>
+    </div>
+
+  </div>
+</div>
+
+<div class="tool-body">
+<div class="left-panel">
+
+  <div class="section">
+    <div class="section-header">Algorithm Mode</div>
+    <div class="section-body">
+      <div class="mode-tabs">
+        <div class="mode-tab active" id="tabGraham" onclick="switchMode('graham')">Graham Scan  O(n log n)</div>
+        <div class="mode-tab" id="tabJarvis" onclick="switchMode('jarvis')">Jarvis March  O(nh)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">Point Set Input — one x,y per line</div>
+    <div class="section-body">
+      <label>Points (x,y) — range 0–100</label>
+      <textarea id="ptInput" rows="6">10,10
+90,10
+90,90
+10,90
+50,50
+30,30
+70,30
+50,70</textarea>
+      <div class="presets">
+        <button class="preset-btn active" onclick="loadPreset(0)">Square + inner</button>
+        <button class="preset-btn" onclick="loadPreset(1)">Scattered 10</button>
+        <button class="preset-btn" onclick="loadPreset(2)">Circle 8pts</button>
+        <button class="preset-btn" onclick="loadPreset(3)">Grid 3×3</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header pur">Complexity Comparison</div>
+    <div class="section-body">
+      <div class="cmp-row">
+        <div class="cmp-box" style="border-color:var(--grn)">
+          <div class="cmp-lbl" style="color:var(--grn)">Graham Scan</div>
+          <div class="cmp-val" style="color:var(--grn)">O(n log n)</div>
+          <div style="font-size:8px;color:var(--txt3);margin-top:3px;font-family:'Inter',sans-serif;">sort-then-scan</div>
+        </div>
+        <div class="cmp-box" style="border-color:var(--acc)">
+          <div class="cmp-lbl" style="color:var(--acc)">Jarvis March</div>
+          <div class="cmp-val" style="color:var(--acc)">O(n·h)</div>
+          <div style="font-size:8px;color:var(--txt3);margin-top:3px;font-family:'Inter',sans-serif;">gift wrapping</div>
+        </div>
+      </div>
+      <div class="concept-box pur" style="font-size:10.5px">Lower bound: Ω(n log n) — sorting reduces to convex hull. Graham Scan is asymptotically optimal for worst case.</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">Playback Controls</div>
+    <div class="section-body">
+      <div class="speed-row">
+        <span class="speed-label-txt">Speed</span>
+        <input type="range" id="speedSlider" min="0.25" max="4" step="0.25" value="1"
+               oninput="document.getElementById('speedVal').textContent=parseFloat(this.value).toFixed(2)+'x'">
+        <span class="speed-val" id="speedVal">1.00x</span>
+      </div>
+      <div class="ctrl-row">
+        <button class="ctrl-btn primary" onclick="buildSteps()">Build Steps</button>
+        <button class="ctrl-btn" id="btnStep" onclick="stepOnce()" disabled>Step</button>
+        <button class="ctrl-btn" id="btnPlay" onclick="playAnim()" disabled>Play</button>
+        <button class="ctrl-btn" id="btnPause" onclick="pauseAnim()" disabled>Pause</button>
+        <button class="ctrl-btn" onclick="resetTool()">Reset</button>
+      </div>
+      <div class="status-row">
+        <span class="badge badge-idle" id="statusBadge">Idle</span>
+        <span class="step-counter" id="stepCounter">Step 0 / 0</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">Pseudocode — Hover for explanation</div>
+    <div class="pseudocode" id="pseudoPanel"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">Step Explanation</div>
+    <div class="explanation" id="stepExplain">Select a mode and press <strong>Build Steps</strong> to begin.</div>
+  </div>
+
+  <div class="section">
+    <div class="section-header grn">Live Statistics</div>
+    <div class="section-body">
+      <div class="stats-grid">
+        <div class="stat-box"><span class="stat-val" id="statHull">0</span><span class="stat-lbl">Hull Size</span></div>
+        <div class="stat-box"><span class="stat-val" id="statN">0</span><span class="stat-lbl">Total Pts</span></div>
+        <div class="stat-box"><span class="stat-val" id="statComps">0</span><span class="stat-lbl">Cross Tests</span></div>
+        <div class="stat-box"><span class="stat-val" id="statPops">—</span><span class="stat-lbl">Pops/Upd</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-header">Step History — Click to jump</div>
+    <div class="history-wrap">
+      <table class="history-table">
+        <thead><tr><th>#</th><th>Phase</th><th>Detail</th><th>Comps</th></tr></thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section">
+    <button class="edu-toggle" onclick="toggleEdu(this)">
+      Algorithm Correctness &amp; Key Concepts <span class="arrow">▼</span>
+    </button>
+    <div class="edu-body">
+      <h4>Why does Graham Scan work?</h4>
+      <p>The stack maintains a CCW convex chain. When we process a new point p in sorted polar-angle order, any right turn on the stack top means the previous point is "inside" the chain formed by the new point — so it is provably not a hull vertex. The while-loop removes all such violations, restoring convexity invariant before pushing p.</p>
+      <div class="concept-box">
+        <strong>Invariant:</strong> after processing sorted[i], the stack contains the convex hull of {pivot, sorted[0], …, sorted[i]}.
+      </div>
+      <h4>Why sort by polar angle?</h4>
+      <p>Sorting ensures we process points in angular order around the pivot. This means each "right turn" detection exactly identifies a non-hull point — we never need to revisit earlier points after they are popped.</p>
+      <h4>⚠ Common Misconception</h4>
+      <p>"All points on the boundary are hull vertices." — FALSE. Collinear boundary points are NOT hull vertices (they lie on an edge, not a vertex). Graham Scan pops them (cross product = 0 → ≤ 0 → pop).</p>
+      <div class="concept-box grn">
+        <strong>Worked Example:</strong><br>
+        Points: (10,10) (90,10) (90,90) (10,90) (50,50)<br>
+        Pivot: (10,10) — lowest y, leftmost<br>
+        Sorted by angle: (90,10) 0° → (90,90) 45° → (10,90) 90°<br>
+        Stack trace: [(10,10),(90,10)] → push (90,90) → push (10,90)<br>
+        Hull: {(10,10),(90,10),(90,90),(10,90)} — interior (50,50) excluded ✓
+      </div>
+      <h4>Jarvis Correctness</h4>
+      <p>At each step, we pick the point most counterclockwise from the current hull vertex. This is equivalent to finding the point p that minimizes the polar angle from the current direction. No other point can lie to the left of the line from current to p, so p must be the next hull vertex.</p>
+    </div>
+  </div>
+
+</div>
+
+<div class="right-panel">
+  <div class="viz-header">
+    <span class="viz-title" id="vizTitle">Convex Hull Visualization</span>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:var(--acc)"></div>Unvisited</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--ylw)"></div>Active point</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--acc2)"></div>Candidate</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Rejected / Popped</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--grn)"></div>Hull vertex</div>
+    </div>
+  </div>
+  <div class="viz-area">
+    <div class="viz-placeholder" id="placeholder">
+      <div class="ph-icon">⬡</div>
+      <div class="ph-text">Enter points on the left<br>then press <strong style="color:var(--acc)">Build Steps</strong></div>
+    </div>
+    <svg id="mainSvg" class="canvas"><g id="svgLayer"></g></svg>
+  </div>
+  <div class="hull-strip" id="hullStrip">
+    <span style="color:var(--txt3);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">Hull</span>
+    <span style="color:var(--txt3)" id="hullDisplay">—</span>
+  </div>
+</div>
+</div>
+
+<script>
+/* ================================================================
+   PSEUDOCODE DEFINITIONS
+   ================================================================ */
+const GRAHAM_PSEUDO = [
+  { c:'GRAHAM_SCAN(points):', t:'Entry point — find convex hull using sort-then-scan' },
+  { c:'  pivot = lowest_y_point(points)', t:'Anchor: bottommost (leftmost if tie) — always on the hull' },
+  { c:'  sort by polar_angle(pivot, ·)', t:'O(n log n) sort — enables one-pass CCW scan afterward' },
+  { c:'  stack = [pivot, sorted[0]]', t:'Seed the stack with first two sorted points' },
+  { c:'  for i = 1 to n−1:', t:'Process each remaining sorted point' },
+  { c:'    p = sorted[i]', t:'Next candidate from sorted order' },
+  { c:'    while |stack| ≥ 2:', t:'Pop non-hull points before pushing p' },
+  { c:'      if cross(s[-2],s[-1],p) > 0: break', t:'Left turn → s[-1] stays on hull' },
+  { c:'      stack.pop()  // right turn or collinear', t:'Right turn: s[-1] cannot be on the convex hull — remove it' },
+  { c:'    stack.push(p)', t:'p makes a valid left turn — push it onto the hull' },
+  { c:'  return stack  // CCW hull vertices', t:'Stack holds all hull vertices in counterclockwise order' },
+];
+
+const JARVIS_PSEUDO = [
+  { c:'JARVIS_MARCH(points):', t:'Entry point — gift-wrapping convex hull algorithm' },
+  { c:'  start = leftmost_point(points)', t:'Leftmost point is guaranteed to be on the hull' },
+  { c:'  hull = [];  current = start', t:'Initialize empty hull, begin at leftmost point' },
+  { c:'  repeat:', t:'Keep adding vertices until we wrap all the way around' },
+  { c:'    hull.append(current)', t:'current is a confirmed hull vertex' },
+  { c:'    candidate = any_other_point', t:'Start with any point as initial candidate for next hull vertex' },
+  { c:'    for each point p ≠ current:', t:'Scan all n−1 points to find the most counterclockwise one' },
+  { c:'      if cross(current, candidate, p) > 0:', t:'p is more counterclockwise than current candidate' },
+  { c:'        candidate = p  // update best', t:'p wraps more tightly — it is a better next hull vertex' },
+  { c:'    current = candidate', t:'Best candidate becomes the next hull vertex' },
+  { c:'  until current == start', t:'We have wrapped all the way around — hull is closed' },
+  { c:'  return hull', t:'Complete convex hull in counterclockwise order' },
+];
+
+function buildPseudo(defs) {
+  document.getElementById('pseudoPanel').innerHTML = defs.map((l, i) =>
+    `<div class="pc-line" id="pcl${i}" data-tip="${l.t}">` +
+    `<span class="pc-num">${l.c ? i+1 : ''}</span>` +
+    `<span class="pc-code">${l.c}</span></div>`
+  ).join('');
+}
+
+function hlLine(n) {
+  document.querySelectorAll('.pc-line').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById('pcl' + n);
+  if (!el) return;
+  el.classList.add('active');
+  const box = el.closest('.pseudocode');
+  if (box) {
+    const lt = el.offsetTop, lb = lt + el.offsetHeight;
+    const bt = box.scrollTop, bb = bt + box.clientHeight;
+    if (lt < bt) box.scrollTop = lt - 4;
+    else if (lb > bb) box.scrollTop = lb - box.clientHeight + 4;
+  }
+}
+
+/* ================================================================
+   PRESETS
+   ================================================================ */
+const PRESETS = [
+  { name:'Square + inner', pts:[[10,10],[90,10],[90,90],[10,90],[50,50],[30,30],[70,30],[50,70]] },
+  { name:'Scattered 10', pts:[[15,20],[35,75],[75,80],[85,35],[60,10],[40,50],[55,55],[25,40],[80,60],[50,25]] },
+  { name:'Circle 8pts', pts:[[50,90],[86,71],[97,34],[71,9],[29,9],[3,34],[14,71],[50,50]] },
+  { name:'Grid 3×3', pts:[[10,10],[50,10],[90,10],[10,50],[50,50],[90,50],[10,90],[50,90],[90,90]] },
+];
+
+function loadPreset(i) {
+  document.getElementById('ptInput').value = PRESETS[i].pts.map(p => p[0]+','+p[1]).join('\n');
+  document.querySelectorAll('.preset-btn').forEach((b,j) => b.classList.toggle('active', i===j));
+  resetTool();
+}
+
+function switchMode(m) {
+  document.getElementById('tabGraham').classList.toggle('active', m==='graham');
+  document.getElementById('tabJarvis').classList.toggle('active', m==='jarvis');
+  document.getElementById('vizTitle').textContent = m === 'graham' ? 'Graham Scan Visualization' : 'Jarvis March Visualization';
+  resetTool();
+}
+
+/* ================================================================
+   GEOMETRY PRIMITIVES
+   ================================================================ */
+function cross(O, A, B) {
+  return (A.x - O.x) * (B.y - O.y) - (A.y - O.y) * (B.x - O.x);
+}
+function dist2(A, B) {
+  return (A.x - B.x) ** 2 + (A.y - B.y) ** 2;
+}
+function parsePts(str) {
+  return str.split(/[\n;]+/).map(s => s.trim()).filter(Boolean).map(s => {
+    const parts = s.split(',');
+    const x = parseFloat(parts[0]), y = parseFloat(parts[1]);
+    return (isFinite(x) && isFinite(y)) ? { x, y } : null;
+  }).filter(Boolean);
+}
+
+/* ================================================================
+   GRAHAM SCAN STEP BUILDER
+   ================================================================ */
+function buildGrahamSteps(pts) {
+  const n = pts.length;
+  const res = [];
+  let comps = 0, popsTotal = 0;
+
+  const base = { pts, hull:[], stack:[], active:-1, pivot:-1, sorted:[], rejected:[], candidate:-1, mode:'graham' };
+
+  res.push({ phase:'Input', detail:'Read points', pcLine:0, st:{...base},
+    expl:`Input: ${n} points to process.\n→ ${pts.map((p,i)=>`P${i}(${p.x},${p.y})`).join('  ')}\n→ Goal: smallest convex polygon containing all points\n→ Algorithm: Graham Scan — O(n log n)\n→ Key idea: sort by polar angle → one-pass CCW scan → maintain stack invariant`,
+    comparisons:0, hullSize:0, pops:0 });
+
+  // Find pivot
+  let pivotIdx = 0;
+  for (let i = 1; i < n; i++) {
+    if (pts[i].y < pts[pivotIdx].y || (pts[i].y === pts[pivotIdx].y && pts[i].x < pts[pivotIdx].x)) pivotIdx = i;
+  }
+  comps = n - 1;
+  res.push({ phase:'Find Pivot', detail:`P${pivotIdx} pivot`, pcLine:1,
+    st:{...base, active:pivotIdx, pivot:pivotIdx},
+    expl:`Find the pivot: lowest y-coordinate (leftmost if tie).\n→ Pivot = P${pivotIdx}(${pts[pivotIdx].x}, ${pts[pivotIdx].y})\n→ WHY: the bottommost point MUST be on the convex hull\n→ No point can be below it — so it cannot be in the interior\n→ All ${n-1} other points will be sorted by polar angle from this pivot\n→ Comparisons to find pivot: ${comps}`,
+    comparisons:comps, hullSize:0, pops:0 });
+
+  // Sort by polar angle
+  const pivot = pts[pivotIdx];
+  const others = pts.map((_,i)=>i).filter(i=>i!==pivotIdx);
+  others.sort((a, b) => {
+    const angA = Math.atan2(pts[a].y - pivot.y, pts[a].x - pivot.x);
+    const angB = Math.atan2(pts[b].y - pivot.y, pts[b].x - pivot.x);
+    if (Math.abs(angA - angB) < 1e-9) return dist2(pivot, pts[a]) - dist2(pivot, pts[b]);
+    return angA - angB;
+  });
+  const sorted = [pivotIdx, ...others];
+  comps += Math.round((n - 1) * Math.log2(Math.max(n - 1, 1)));
+
+  res.push({ phase:'Sort by Angle', detail:`${n-1} pts sorted`, pcLine:2,
+    st:{...base, pivot:pivotIdx, sorted:[...sorted]},
+    expl:`Sort ${n-1} points by polar angle from P${pivotIdx}.\n→ Sorted order: ${sorted.map(i=>`P${i}`).join(' → ')}\n→ Angles: ${others.map(i=>`P${i}: ${(Math.atan2(pts[i].y-pivot.y, pts[i].x-pivot.x)*180/Math.PI).toFixed(1)}°`).join(', ')}\n→ Ties broken by distance from pivot (farther point is better)\n→ Sort cost: O(n log n) ≈ ${comps} total comparisons so far`,
+    comparisons:comps, hullSize:0, pops:0 });
+
+  if (sorted.length < 3) return res;
+
+  // Init stack
+  let stack = [sorted[0], sorted[1]];
+  res.push({ phase:'Init Stack', detail:`[P${stack.join(',P')}]`, pcLine:3,
+    st:{...base, pivot:pivotIdx, sorted:[...sorted], stack:[...stack], hull:[...stack], active:stack[1]},
+    expl:`Initialize the stack with the pivot and the first sorted point.\n→ Stack: [P${stack[0]}, P${stack[1]}]\n→ P${stack[0]} = pivot — guaranteed on hull\n→ P${stack[1]} = first sorted point — tentatively on hull\n→ Invariant: stack always forms a valid CCW convex chain`,
+    comparisons:comps, hullSize:2, pops:0 });
+
+  // Main loop
+  for (let si = 2; si < sorted.length; si++) {
+    const pi = sorted[si];
+    res.push({ phase:`Consider P${pi}`, detail:`Check P${pi}`, pcLine:4,
+      st:{...base, pivot:pivotIdx, sorted:[...sorted], stack:[...stack], hull:[...stack], active:pi},
+      expl:`Considering P${pi}(${pts[pi].x}, ${pts[pi].y})  [position ${si}/${sorted.length-1} in sorted order]\n→ Stack: [${stack.map(i=>`P${i}`).join(', ')}]\n→ Stack[-2]: P${stack[stack.length-2]}, Stack[-1]: P${stack[stack.length-1]}\n→ Will test: cross(P${stack[stack.length-2]}, P${stack[stack.length-1]}, P${pi})\n→ If ≤ 0 (right turn or collinear) → pop stack top`,
+      comparisons:comps, hullSize:stack.length, pops:popsTotal });
+
+    while (stack.length >= 2) {
+      const A = stack[stack.length-2], B = stack[stack.length-1];
+      const cp = cross(pts[A], pts[B], pts[pi]);
+      comps++;
+      if (cp > 0) break;
+      const popped = stack.pop();
+      popsTotal++;
+      res.push({ phase:`Pop P${popped}`, detail:`cp=${Math.round(cp)}`, pcLine:8,
+        st:{...base, pivot:pivotIdx, sorted:[...sorted], stack:[...stack], hull:[...stack], active:pi, rejected:[popped]},
+        expl:`Cross product test: cross(P${A}, P${popped}, P${pi}) = ${cp.toFixed(1)}\n→ Formula: (P${popped}.x−P${A}.x)·(P${pi}.y−P${A}.y) − (P${popped}.y−P${A}.y)·(P${pi}.x−P${A}.x)\n→ = (${pts[popped].x-pts[A].x})·(${pts[pi].y-pts[A].y}) − (${pts[popped].y-pts[A].y})·(${pts[pi].x-pts[A].x}) = ${cp.toFixed(1)}\n→ Result ≤ 0 → ${cp < 0 ? 'RIGHT TURN (clockwise)' : 'COLLINEAR'} → P${popped} is NOT a hull vertex!\n→ POP P${popped}  |  Stack now: [${stack.map(i=>`P${i}`).join(', ')}]`,
+        comparisons:comps, hullSize:stack.length, pops:popsTotal });
+    }
+
+    stack.push(pi);
+    res.push({ phase:`Push P${pi}`, detail:`Size: ${stack.length}`, pcLine:9,
+      st:{...base, pivot:pivotIdx, sorted:[...sorted], stack:[...stack], hull:[...stack], active:pi},
+      expl:`Push P${pi} — makes a valid left turn with the stack top.\n→ Cross product > 0 → LEFT TURN (counterclockwise) → P${pi} is a hull candidate ✓\n→ Stack: [${stack.map(i=>`P${i}`).join(', ')}]\n→ Hull size so far: ${stack.length}  |  Total pops: ${popsTotal}`,
+      comparisons:comps, hullSize:stack.length, pops:popsTotal });
+  }
+
+  res.push({ phase:'Done ✓', detail:`${stack.length} hull pts`, pcLine:10,
+    st:{...base, pivot:pivotIdx, sorted:[...sorted], stack:[...stack], hull:[...stack], active:-1, done:true},
+    expl:`Graham Scan complete! ✓\n→ Convex hull: [${stack.map(i=>`P${i}(${pts[i].x},${pts[i].y})`).join(' → ')}]\n→ Hull size h = ${stack.length} of ${n} input points\n→ Interior / rejected: ${n - stack.length} points\n→ Total cross product tests: ${comps}  |  Total pops: ${popsTotal}\n→ Complexity: O(n log n) sort + O(n) scan = O(n log n) ✓`,
+    comparisons:comps, hullSize:stack.length, pops:popsTotal, done:true });
+
+  return res;
+}
+
+/* ================================================================
+   JARVIS MARCH STEP BUILDER
+   ================================================================ */
+function buildJarvisSteps(pts) {
+  const n = pts.length;
+  const res = [];
+  let comps = 0;
+
+  const base = { pts, hull:[], stack:[], active:-1, pivot:-1, sorted:[], rejected:[], candidate:-1, mode:'jarvis' };
+
+  res.push({ phase:'Input', detail:'Read points', pcLine:0, st:{...base},
+    expl:`Input: ${n} points to process.\n→ ${pts.map((p,i)=>`P${i}(${p.x},${p.y})`).join('  ')}\n→ Algorithm: Jarvis March (Gift Wrapping) — O(n·h)\n→ h = number of hull vertices, n = total points\n→ Strategy: at each step, find the "most counterclockwise" point from current position`,
+    comparisons:0, hullSize:0, pops:0 });
+
+  // Find leftmost
+  let startIdx = 0;
+  for (let i = 1; i < n; i++) {
+    if (pts[i].x < pts[startIdx].x || (pts[i].x === pts[startIdx].x && pts[i].y < pts[startIdx].y)) startIdx = i;
+  }
+  comps = n - 1;
+  res.push({ phase:'Find Start', detail:`P${startIdx} leftmost`, pcLine:1,
+    st:{...base, active:startIdx, pivot:startIdx},
+    expl:`Find the starting point: leftmost x-coordinate (bottommost if tie).\n→ Start = P${startIdx}(${pts[startIdx].x}, ${pts[startIdx].y})\n→ WHY leftmost: guaranteed on the convex hull — no point to its left\n→ The wrapping will proceed counterclockwise from here\n→ Comparisons to find start: ${comps}`,
+    comparisons:comps, hullSize:0, pops:0 });
+
+  let current = startIdx;
+  const hullVerts = [];
+
+  for (let iter = 0; iter <= n; iter++) {
+    hullVerts.push(current);
+    let candidate = (current === 0) ? 1 : 0;
+
+    res.push({ phase:`Wrap from P${current}`, detail:`Find next vertex`, pcLine:6,
+      st:{...base, pivot:startIdx, hull:[...hullVerts], stack:[...hullVerts], active:current, candidate},
+      expl:`P${current}(${pts[current].x},${pts[current].y}) confirmed as hull vertex ${hullVerts.length}.\n→ Current hull: [${hullVerts.map(i=>`P${i}`).join(' → ')}]\n→ Now scanning all ${n-1} other points to find the next hull vertex\n→ Initial candidate: P${candidate}(${pts[candidate].x},${pts[candidate].y})\n→ Will update candidate if we find a more counterclockwise point`,
+      comparisons:comps, hullSize:hullVerts.length, pops:0 });
+
+    for (let i = 0; i < n; i++) {
+      if (i === current) continue;
+      comps++;
+      const cp = cross(pts[current], pts[candidate], pts[i]);
+      if (cp > 0 || (cp === 0 && dist2(pts[current], pts[i]) > dist2(pts[current], pts[candidate]))) {
+        const oldCand = candidate;
+        candidate = i;
+        res.push({ phase:`Update candidate`, detail:`P${oldCand}→P${candidate}`, pcLine:8,
+          st:{...base, pivot:startIdx, hull:[...hullVerts], stack:[...hullVerts], active:current, candidate, rejected:[oldCand]},
+          expl:`cross(P${current}, P${oldCand}, P${i}) = ${cp.toFixed(1)} > 0\n→ P${i}(${pts[i].x},${pts[i].y}) is MORE counterclockwise than P${oldCand}\n→ Update candidate: P${oldCand} → P${i}\n→ New candidate: P${candidate}(${pts[candidate].x},${pts[candidate].y})\n→ Comparisons so far: ${comps}  |  Hull so far: ${hullVerts.length} vertices`,
+          comparisons:comps, hullSize:hullVerts.length, pops:0 });
+      }
+    }
+
+    res.push({ phase:`Accept P${candidate}`, detail:`Hull vertex ${hullVerts.length+1}`, pcLine:9,
+      st:{...base, pivot:startIdx, hull:[...hullVerts], stack:[...hullVerts], active:candidate, candidate:-1},
+      expl:`P${candidate}(${pts[candidate].x},${pts[candidate].y}) is the most counterclockwise from P${current}.\n→ No other point lies to the left of line P${current}→P${candidate}\n→ Therefore P${candidate} is the next convex hull vertex ✓\n→ Hull so far: [${hullVerts.map(i=>`P${i}`).join(', ')}] + P${candidate}\n→ Cumulative comparisons: ${comps}`,
+      comparisons:comps, hullSize:hullVerts.length + 1, pops:0 });
+
+    current = candidate;
+    if (current === startIdx) break;
+  }
+
+  res.push({ phase:'Done ✓', detail:`${hullVerts.length} hull pts`, pcLine:11,
+    st:{...base, pivot:startIdx, hull:[...hullVerts], stack:[...hullVerts], active:-1, done:true},
+    expl:`Jarvis March complete! ✓\n→ Convex hull: [${hullVerts.map(i=>`P${i}(${pts[i].x},${pts[i].y})`).join(' → ')}]\n→ Hull size h = ${hullVerts.length} of ${n} input points\n→ Interior points: ${n - hullVerts.length}\n→ Total comparisons: ${comps}  (= n·h = ${n}·${hullVerts.length} = ${n*hullVerts.length} theoretical)\n→ Complexity: O(n·h) — efficient when h ≪ n ✓`,
+    comparisons:comps, hullSize:hullVerts.length, pops:0, done:true });
+
+  return res;
+}
+
+/* ================================================================
+   STEP ENGINE
+   ================================================================ */
+let steps = [], curIdx = -1, playing = false, timer = null;
+let stPts = [], stMode = 'graham';
+
+function buildSteps() {
+  const pts = parsePts(document.getElementById('ptInput').value);
+  if (pts.length < 3) { alert('Need at least 3 points.'); return; }
+
+  resetTool(false);
+  stPts = pts;
+  stMode = document.getElementById('tabGraham').classList.contains('active') ? 'graham' : 'jarvis';
+
+  if (stMode === 'graham') {
+    buildPseudo(GRAHAM_PSEUDO);
+    steps = buildGrahamSteps(pts);
+  } else {
+    buildPseudo(JARVIS_PSEUDO);
+    steps = buildJarvisSteps(pts);
+  }
+
+  document.getElementById('statN').textContent = pts.length;
+  document.getElementById('placeholder').style.display = 'none';
+  rebuildHistory(-1);
+  setStatus('ready');
+  document.getElementById('btnStep').disabled = false;
+  document.getElementById('btnPlay').disabled = false;
+  curIdx = -1;
+  setCounter(0, steps.length);
+  draw(-1);
+}
+
+function applyStep(i) {
+  if (i < 0 || i >= steps.length) return;
+  const s = steps[i];
+  setCounter(i + 1, steps.length);
+
+  const exEl = document.getElementById('stepExplain');
+  exEl.innerHTML = (s.expl || '').replace(/\n/g, '<br>');
+  exEl.classList.remove('flash');
+  void exEl.offsetWidth;
+  exEl.classList.add('flash');
+
+  hlLine(s.pcLine);
+  draw(i);
+
+  document.getElementById('statHull').textContent = s.hullSize || 0;
+  document.getElementById('statComps').textContent = s.comparisons || 0;
+  document.getElementById('statPops').textContent = s.pops !== undefined ? s.pops : '—';
+
+  if (s.done) {
+    const hullPts = (s.st.hull || []).map(idx => `P${idx}`).join(' → ');
+    document.getElementById('hullDisplay').innerHTML = `<span style="color:var(--grn)">${hullPts}</span>`;
+    setStatus('done');
+    playing = false;
+    document.getElementById('btnPlay').disabled = true;
+    document.getElementById('btnStep').disabled = true;
+  } else if (!playing) setStatus('paused');
+
+  document.querySelectorAll('#historyBody tr').forEach((r, j) => r.classList.toggle('current', j === i));
+  const row = document.querySelector(`#historyBody tr:nth-child(${i + 1})`);
+  if (row) {
+    const wrap = document.querySelector('.history-wrap');
+    if (wrap) wrap.scrollTop = row.offsetTop - wrap.clientHeight / 2;
+  }
+}
+
+function stepOnce() { if (curIdx + 1 < steps.length) { curIdx++; applyStep(curIdx); } }
+
+function playAnim() {
+  if (playing || curIdx + 1 >= steps.length) return;
+  playing = true; setStatus('playing');
+  document.getElementById('btnPause').disabled = false;
+  function tick() {
+    if (!playing || curIdx + 1 >= steps.length) { playing = false; return; }
+    curIdx++; applyStep(curIdx);
+    timer = setTimeout(tick, 900 / parseFloat(document.getElementById('speedSlider').value));
+  }
+  tick();
+}
+
+function pauseAnim() {
+  playing = false; clearTimeout(timer);
+  document.getElementById('btnPause').disabled = true;
+  if (curIdx < steps.length - 1) setStatus('paused');
+}
+
+function resetTool(full = true) {
+  playing = false; clearTimeout(timer); curIdx = -1; steps = [];
+  setStatus('idle'); setCounter(0, 0);
+  document.getElementById('stepExplain').innerHTML = 'Select a mode and press <strong>Build Steps</strong> to begin.';
+  document.getElementById('btnStep').disabled = true;
+  document.getElementById('btnPlay').disabled = true;
+  document.getElementById('btnPause').disabled = true;
+  document.getElementById('historyBody').innerHTML = '';
+  document.getElementById('statHull').textContent = '0';
+  document.getElementById('statN').textContent = '0';
+  document.getElementById('statComps').textContent = '0';
+  document.getElementById('statPops').textContent = '—';
+  document.getElementById('hullDisplay').textContent = '—';
+  document.querySelectorAll('.pc-line').forEach(el => el.classList.remove('active'));
+  document.getElementById('svgLayer').innerHTML = '';
+  if (full) { document.getElementById('placeholder').style.display = 'flex'; stPts = []; }
+  drawIdle();
+}
+
+function jumpTo(i) { pauseAnim(); curIdx = i; rebuildHistory(i); applyStep(i); setStatus('paused'); }
+
+function rebuildHistory(cur) {
+  const body = document.getElementById('historyBody');
+  body.innerHTML = '';
+  steps.forEach((s, i) => {
+    const tr = document.createElement('tr');
+    if (i === cur) tr.classList.add('current');
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', () => jumpTo(i));
+    ['#' + (i + 1), s.phase, s.detail, s.comparisons].forEach(t => {
+      const td = document.createElement('td'); td.textContent = t; tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+function setStatus(s) {
+  const el = document.getElementById('statusBadge');
+  const map = { idle:'Idle', ready:'Ready', playing:'Playing', paused:'Paused', done:'Done' };
+  const cls = { idle:'badge-idle', ready:'badge-ready', playing:'badge-playing', paused:'badge-paused', done:'badge-done' };
+  el.textContent = map[s] || s; el.className = 'badge ' + (cls[s] || 'badge-idle');
+}
+function setCounter(cur, tot) { document.getElementById('stepCounter').textContent = `Step ${cur} / ${tot}`; }
+
+/* ================================================================
+   SVG DRAWING
+   ================================================================ */
+function svgEl(tag, attr) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attr) el.setAttribute(k, attr[k]);
+  return el;
+}
+function svgTxt(content, attr) {
+  const el = svgEl('text', attr); el.textContent = content; return el;
+}
+function clearSvg() { document.getElementById('svgLayer').innerHTML = ''; }
+
+function drawIdle() {
+  clearSvg();
+  const g = document.getElementById('svgLayer');
+  const svg = document.getElementById('mainSvg');
+  const W = svg.clientWidth || 800, H = svg.clientHeight || 500;
+  g.appendChild(svgTxt('Build Steps to see the hull construction animate', {
+    x: W / 2, y: H / 2, 'text-anchor': 'middle', 'font-size': '13',
+    'font-family': 'Inter,system-ui', fill: '#2a3d5a'
+  }));
+}
+
+function draw(stepIdx) {
+  clearSvg();
+  const svg = document.getElementById('mainSvg');
+  const W = svg.clientWidth || 800, H = svg.clientHeight || 500;
+  const g = document.getElementById('svgLayer');
+
+  // Use initial state (all points) if stepIdx < 0
+  let st;
+  if (stepIdx < 0 && stPts.length > 0) {
+    st = { pts:stPts, hull:[], stack:[], active:-1, pivot:-1, sorted:[], rejected:[], candidate:-1, mode:stMode };
+  } else if (stepIdx >= 0 && steps[stepIdx]) {
+    st = steps[stepIdx].st;
+  } else { drawIdle(); return; }
+
+  const pts = st.pts;
+  const n = pts.length;
+  if (!n) { drawIdle(); return; }
+
+  const PAD = 44, RPAD = 200; // right area for stack info
+  const plotW = W - PAD - RPAD, plotH = H - 2 * PAD;
+
+  // Map point coord (0-100) to SVG pixel
+  function mx(x) { return PAD + x * plotW / 100; }
+  function my(y) { return H - PAD - y * plotH / 100; }
+
+  // Grid
+  for (let gv = 0; gv <= 100; gv += 25) {
+    g.appendChild(svgEl('line', { x1:mx(gv), y1:my(0), x2:mx(gv), y2:my(100), stroke:'#0d1a2e', 'stroke-width':'1' }));
+    g.appendChild(svgEl('line', { x1:mx(0), y1:my(gv), x2:mx(100), y2:my(gv), stroke:'#0d1a2e', 'stroke-width':'1' }));
+    g.appendChild(svgTxt(gv, { x:mx(gv), y:H-PAD+13, 'text-anchor':'middle', 'font-size':'8', fill:'#1f3055', 'font-family':'IBM Plex Mono,monospace' }));
+    g.appendChild(svgTxt(gv, { x:PAD-6, y:my(gv)+3, 'text-anchor':'end', 'font-size':'8', fill:'#1f3055', 'font-family':'IBM Plex Mono,monospace' }));
+  }
+  // Axes
+  g.appendChild(svgEl('line', { x1:mx(0), y1:my(0), x2:mx(100), y2:my(0), stroke:'#1a2d4a', 'stroke-width':'1.5' }));
+  g.appendChild(svgEl('line', { x1:mx(0), y1:my(0), x2:mx(0), y2:my(100), stroke:'#1a2d4a', 'stroke-width':'1.5' }));
+
+  const hullSet = new Set(st.hull || []);
+  const rejSet = new Set(st.rejected || []);
+
+  // Draw pivot angle lines (Graham sort phase)
+  if (st.mode === 'graham' && st.sorted.length > 0 && st.pivot >= 0 && st.stack.length <= 2) {
+    st.sorted.forEach(i => {
+      if (i === st.pivot) return;
+      g.appendChild(svgEl('line', { x1:mx(pts[st.pivot].x), y1:my(pts[st.pivot].y), x2:mx(pts[i].x), y2:my(pts[i].y), stroke:'rgba(61,169,252,.18)', 'stroke-width':'1', 'stroke-dasharray':'4,4' }));
+    });
+  }
+
+  // Draw hull polygon fill (done state)
+  if (st.done && st.hull.length >= 3) {
+    const polyPts = st.hull.map(i => `${mx(pts[i].x)},${my(pts[i].y)}`).join(' ');
+    g.appendChild(svgEl('polygon', { points:polyPts, fill:'rgba(16,217,160,.07)', stroke:'none' }));
+  }
+
+  // Draw hull edges
+  if (st.hull && st.hull.length >= 2) {
+    const h = st.hull;
+    for (let ei = 0; ei < h.length; ei++) {
+      const isLast = ei === h.length - 1;
+      if (isLast && !st.done) continue;
+      const from = h[ei], to = h[(ei + 1) % h.length];
+      const isNewest = ei === h.length - 2 && !st.done;
+      g.appendChild(svgEl('line', {
+        x1:mx(pts[from].x), y1:my(pts[from].y),
+        x2:mx(pts[to].x), y2:my(pts[to].y),
+        stroke: isNewest ? '#f6b93b' : '#10d9a0',
+        'stroke-width': isNewest ? 2.5 : 2,
+        opacity: st.done ? 1 : 0.85
+      }));
+    }
+  }
+
+  // Jarvis: dashed scan line from active to candidate
+  if (st.mode === 'jarvis' && st.candidate >= 0 && st.active >= 0 && st.candidate !== st.active) {
+    g.appendChild(svgEl('line', {
+      x1:mx(pts[st.active].x), y1:my(pts[st.active].y),
+      x2:mx(pts[st.candidate].x), y2:my(pts[st.candidate].y),
+      stroke:'rgba(139,92,246,.7)', 'stroke-width':'2', 'stroke-dasharray':'6,3'
+    }));
+  }
+
+  // Points
+  for (let i = 0; i < n; i++) {
+    const px = mx(pts[i].x), py = my(pts[i].y);
+    const isActive = i === st.active;
+    const isCand = i === st.candidate;
+    const isHull = hullSet.has(i);
+    const isPivot = i === st.pivot && st.mode === 'graham';
+    const isRejected = rejSet.has(i);
+
+    let fill, stroke, r;
+    if (isActive)        { fill='rgba(246,185,59,.28)';  stroke='#f6b93b';  r=10; }
+    else if (isCand)     { fill='rgba(139,92,246,.28)';  stroke='#8b5cf6';  r=9; }
+    else if (isRejected) { fill='rgba(240,80,74,.22)';   stroke='#f0504a';  r=8; }
+    else if (isHull)     { fill='rgba(16,217,160,.22)';  stroke='#10d9a0';  r=9; }
+    else if (isPivot)    { fill='rgba(61,169,252,.25)';  stroke='#3da9fc';  r=10; }
+    else                 { fill='rgba(61,169,252,.08)';  stroke='#253d5a';  r=7; }
+
+    const circ = svgEl('circle', { cx:px, cy:py, r, fill, stroke, 'stroke-width':'2' });
+    circ.classList.add('viz-node');
+    if (isActive || isCand) circ.classList.add('anim-glow');
+    g.appendChild(circ);
+
+    // Point label
+    const lx = px + r + 5, ly = py - 2;
+    g.appendChild(svgTxt(`P${i}`, { x:lx, y:ly, 'font-size':'9', 'font-family':'IBM Plex Mono,monospace',
+      fill: isActive ? '#f6b93b' : isCand ? '#8b5cf6' : isHull ? '#10d9a0' : '#3d5a7a',
+      'font-weight': isActive || isHull ? '700' : '400' }));
+    g.appendChild(svgTxt(`(${pts[i].x},${pts[i].y})`, { x:lx, y:ly+10, 'font-size':'7', 'font-family':'IBM Plex Mono,monospace', fill:'#1e3050' }));
+  }
+
+  // ── RIGHT PANEL: Stack / Hull Info ──
+  const rpX = W - RPAD + 10, rpW = RPAD - 14;
+  g.appendChild(svgEl('rect', { x:W-RPAD+2, y:0, width:RPAD-2, height:H, fill:'rgba(10,15,28,.7)', stroke:'#1a2d4a', 'stroke-width':'1' }));
+
+  const modeLabel = st.mode === 'graham' ? 'Graham Scan' : 'Jarvis March';
+  g.appendChild(svgTxt(modeLabel, { x:rpX, y:22, 'font-size':'10', 'font-family':'IBM Plex Mono,monospace', fill:'#3da9fc', 'font-weight':'700' }));
+
+  if (st.mode === 'graham') {
+    // Stack visualization
+    g.appendChild(svgTxt('STACK (top→bottom):', { x:rpX, y:44, 'font-size':'8', 'font-family':'IBM Plex Mono,monospace', fill:'#4a6080', 'font-weight':'700' }));
+    const stack = st.stack || [];
+    if (stack.length === 0) {
+      g.appendChild(svgTxt('(empty)', { x:rpX, y:62, 'font-size':'9', 'font-family':'IBM Plex Mono,monospace', fill:'#2a3d5a' }));
+    } else {
+      [...stack].reverse().forEach((si, ki) => {
+        const ry = 60 + ki * 28;
+        const isTop = ki === 0;
+        const boxFill = isTop ? 'rgba(61,169,252,.15)' : 'rgba(25,35,64,.8)';
+        const boxStroke = isTop ? '#3da9fc' : '#1f2e50';
+        g.appendChild(svgEl('rect', { x:rpX, y:ry-13, width:rpW-4, height:22, rx:4, fill:boxFill, stroke:boxStroke, 'stroke-width':'1' }));
+        g.appendChild(svgTxt(`P${si} (${pts[si].x},${pts[si].y})`, { x:rpX+6, y:ry+2, 'font-size':'9', 'font-family':'IBM Plex Mono,monospace', fill:isTop?'#3da9fc':'#6a8aaa', 'font-weight':isTop?'700':'400' }));
+        if (isTop) g.appendChild(svgTxt('← top', { x:rpX+rpW-8, y:ry+2, 'text-anchor':'end', 'font-size':'7', 'font-family':'IBM Plex Mono,monospace', fill:'#3da9fc' }));
+      });
+    }
+
+    // Cross product annotation
+    if (st.rejected && st.rejected.length > 0 && st.active >= 0 && st.stack.length >= 2) {
+      const A = st.stack[st.stack.length - 2] !== undefined ? st.stack[st.stack.length - 2] : -1;
+      const B = st.rejected[0];
+      const C = st.active;
+      if (A >= 0) {
+        const cp = cross(pts[A], pts[B], pts[C]);
+        const anny = Math.min(60 + stack.length * 28 + 20, H - 100);
+        g.appendChild(svgTxt('CROSS PRODUCT:', { x:rpX, y:anny, 'font-size':'8', fill:'#4a6080', 'font-family':'IBM Plex Mono,monospace', 'font-weight':'700' }));
+        g.appendChild(svgTxt(`cross(P${A},P${B},P${C})`, { x:rpX, y:anny+14, 'font-size':'8.5', fill:'#f6b93b', 'font-family':'IBM Plex Mono,monospace' }));
+        g.appendChild(svgTxt(`= ${cp.toFixed(1)}`, { x:rpX, y:anny+27, 'font-size':'10', fill: cp > 0 ? '#10d9a0' : '#f0504a', 'font-family':'IBM Plex Mono,monospace', 'font-weight':'700' }));
+        g.appendChild(svgTxt(cp > 0 ? '→ LEFT TURN ✓' : '→ RIGHT TURN ✗', { x:rpX, y:anny+40, 'font-size':'8.5', fill: cp > 0 ? '#10d9a0' : '#f0504a', 'font-family':'IBM Plex Mono,monospace', 'font-weight':'700' }));
+      }
+    }
+  } else {
+    // Jarvis: hull progress
+    g.appendChild(svgTxt('HULL FOUND SO FAR:', { x:rpX, y:44, 'font-size':'8', 'font-family':'IBM Plex Mono,monospace', fill:'#4a6080', 'font-weight':'700' }));
+    const hull = st.hull || [];
+    if (hull.length === 0) {
+      g.appendChild(svgTxt('(none yet)', { x:rpX, y:62, 'font-size':'9', 'font-family':'IBM Plex Mono,monospace', fill:'#2a3d5a' }));
+    } else {
+      hull.forEach((hi, ki) => {
+        const ry = 60 + ki * 24;
+        const isLast = ki === hull.length - 1;
+        g.appendChild(svgEl('rect', { x:rpX, y:ry-12, width:rpW-4, height:20, rx:3, fill: isLast ? 'rgba(16,217,160,.15)' : 'rgba(25,35,64,.8)', stroke: isLast ? '#10d9a0' : '#1f2e50', 'stroke-width':'1' }));
+        g.appendChild(svgTxt(`${ki+1}. P${hi} (${pts[hi].x},${pts[hi].y})`, { x:rpX+5, y:ry+2, 'font-size':'9', 'font-family':'IBM Plex Mono,monospace', fill: isLast ? '#10d9a0' : '#6a8aaa' }));
+      });
+    }
+    if (st.candidate >= 0) {
+      const canny = Math.min(60 + hull.length * 24 + 10, H - 80);
+      g.appendChild(svgTxt('CANDIDATE:', { x:rpX, y:canny, 'font-size':'8', fill:'#4a6080', 'font-family':'IBM Plex Mono,monospace', 'font-weight':'700' }));
+      g.appendChild(svgTxt(`P${st.candidate}(${pts[st.candidate].x},${pts[st.candidate].y})`, { x:rpX, y:canny+14, 'font-size':'9.5', fill:'#8b5cf6', 'font-family':'IBM Plex Mono,monospace', 'font-weight':'700' }));
+    }
+  }
+
+  // Phase banner
+  const phase = stepIdx >= 0 ? steps[stepIdx].phase : 'Input';
+  const phColor = phase.includes('Done') ? '#10d9a0' : phase.includes('Pop') ? '#f0504a' : phase.includes('Push') || phase.includes('Accept') ? '#10d9a0' : '#3da9fc';
+  g.appendChild(svgEl('rect', { x:PAD, y:4, width:plotW-PAD, height:16, rx:3, fill:'rgba(0,0,0,.4)', stroke:phColor, 'stroke-width':'0.5' }));
+  g.appendChild(svgTxt('PHASE: ' + phase, { x:PAD + (plotW - PAD) / 2, y:15, 'text-anchor':'middle', 'font-size':'10', 'font-family':'IBM Plex Mono,monospace', fill:phColor, 'font-weight':'700' }));
+}
+
+/* ================================================================
+   MISC UI
+   ================================================================ */
+function toggleLecture() { document.getElementById('lectureStrip').classList.toggle('open'); }
+function toggleEdu(btn) { btn.classList.toggle('open'); btn.nextElementSibling.classList.toggle('open'); }
+
+/* ================================================================
+   INIT
+   ================================================================ */
+buildPseudo(GRAHAM_PSEUDO);
+drawIdle();
+</script>
+</body>
+</html>
