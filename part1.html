@@ -1004,7 +1004,10 @@ function applyStep(i) {
   // history highlight
   document.querySelectorAll('#historyBody tr').forEach((r,j) => r.classList.toggle('current', j===i));
   const row = document.querySelector(`#historyBody tr:nth-child(${i+1})`);
-  if (row) row.scrollIntoView({block:'nearest'});
+  if (row) {
+    const wrap = document.querySelector('.history-wrap');
+    if (wrap) wrap.scrollTop = row.offsetTop - wrap.clientHeight / 2;
+  }
 }
 
 function stepOnce() {

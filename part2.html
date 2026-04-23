@@ -1250,7 +1250,10 @@ function applyStep(i) {
   /* history highlight */
   document.querySelectorAll('#histBody tr').forEach((tr,j) => tr.classList.toggle('current', j===i));
   const cur = document.querySelector('#histBody tr.current');
-  if (cur) cur.scrollIntoView({block:'nearest'});
+  if (cur) {
+    const wrap = document.querySelector('.history-wrap');
+    if (wrap) wrap.scrollTop = cur.offsetTop - wrap.clientHeight / 2;
+  }
 
   MODE === 'crt' ? drawCRT(i) : drawRSA(i);
 }
