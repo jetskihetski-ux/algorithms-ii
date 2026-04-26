@@ -141,7 +141,7 @@ input[type="text"], input[type="number"], textarea,
   overflow: hidden;
   transition: max-height .35s ease;
 }
-.lecture-strip.open { max-height: 500px; overflow-y: auto; }
+.lecture-strip.open { max-height: 700px; overflow: auto; }
 
 .lecture-toggle {
   display: flex;
@@ -403,6 +403,9 @@ input[type="range"]:hover::-webkit-slider-thumb {
 }
 @keyframes expl-flash { 0%{background:rgba(61,169,252,.13);border-color:var(--acc)} 100%{background:var(--bg0);border-color:var(--acc)} }
 .explanation.flash { animation: expl-flash .4s ease-out; }
+.key-insight{background:rgba(16,217,160,.07);border-left:3px solid var(--grn);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:8px 11px;margin-top:8px;font-size:11px;color:var(--txt2);line-height:1.7;display:none;}
+.key-insight.visible{display:block;}
+.ki-label{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--grn);margin-bottom:5px;}
 
 .history-wrap { max-height: 150px; overflow-y: auto; border-radius: var(--radius-sm); border: 1px solid var(--border); }
 .history-table { width: 100%; border-collapse: collapse; font-size: 10px; }
@@ -617,6 +620,32 @@ svg.canvas { width: 100%; height: 100%; display: block; }
       </div>
     </div>
 
+
+    <div class="lec-card">
+      <div class="lec-card-title">Numerical Precision &amp; NTT</div>
+      <p>FFT uses complex floating-point arithmetic — rounding errors accumulate across butterfly levels.</p>
+      <div class="concept-box ylw">
+        <strong>Problem:</strong> For large inputs or integer coefficients, float errors can corrupt results (e.g. 2.9999… instead of 3).<br>
+        <strong>Fix 1:</strong> Round to nearest integer at the end — works when coefficients are known integers.<br>
+        <strong>Fix 2:</strong> Use NTT — FFT over ℤ_p (a prime field) instead of ℂ.
+      </div>
+      <div class="concept-box grn" style="margin-top:7px">
+        <strong>Number Theoretic Transform (NTT):</strong> replace ωₙ = e^(2πi/n) with a primitive n-th root of unity mod p. All arithmetic is exact integers — no float errors. Used in cryptography (CRYSTALS-Kyber, ML-KEM post-quantum standard) and competitive programming.
+      </div>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Common Mistakes &amp; Edge Cases</div>
+      <div class="concept-box ylw">
+        <strong>Wrong padding size:</strong> n must be ≥ deg(A) + deg(B) + 1, not just max(len(A), len(B)). Under-padding causes circular convolution (aliasing).<br>
+        <strong>Off-by-one:</strong> A polynomial of degree d has d+1 coefficients. Always count coefficients, not degree.
+      </div>
+      <div class="concept-box" style="margin-top:7px">
+        <strong>Circular vs. linear convolution:</strong> DFT computes circular convolution by default. Zero-padding to length ≥ len(A)+len(B)−1 converts it to linear convolution = polynomial multiplication.
+      </div>
+      <p style="margin-top:7px">In this tool n = next_pow2(len(A)+len(B)−1) — always correct for polynomial multiplication.</p>
+    </div>
+
   </div>
 </div>
 
@@ -702,6 +731,7 @@ svg.canvas { width: 100%; height: 100%; display: block; }
       <div class="explanation" id="stepExplain">
         Enter two polynomials and press <strong>Build Steps</strong> to begin.
       </div>
+      <div class="key-insight" id="keyInsight"><div class="ki-label">💡 Key Insight</div><div id="keyInsightText"></div></div>
     </div>
 
     <!-- Stats -->
@@ -980,11 +1010,13 @@ function buildSteps() {
     expl:`Goal: compute C(x) = A(x) × B(x) in O(n log n) instead of naïve O(n²).\n→ A = [${A.join(', ')}]  (degree ${A.length-1}, ${A.length} coefficients)\n→ B = [${B.join(', ')}]  (degree ${B.length-1}, ${B.length} coefficients)\n→ deg(C) = deg(A) + deg(B) = ${A.length-1+B.length-1}  →  ${resLen} coefficients needed\n→ Naïve cost: ${naiveOps} multiplications  (O(n²) = ${A.length} × ${B.length})\n→ FFT target: ~${fftOps} ops  (O(n log n))  →  ${(naiveOps/fftOps).toFixed(1)}× faster`, detail:'Input & pad' });
 
   steps.push({ phase:'Setup', sub:'split', pcLine:2, mults:0, adds:0, level:-1,
-    expl:`Zero-pad both polynomials to length n = ${N}  (next power of 2 ≥ ${resLen}).\n→ n = next_pow2(${resLen}) = ${N}  →  ${lv} FFT levels\n→ A_pad = [${Apad.join(', ')}]\n→ B_pad = [${Bpad.join(', ')}]\n→ WHY power of 2: enables perfect even/odd splitting at every level\n→ Padding with zeros does NOT change the polynomial value`, detail:'Zero-pad' });
+    expl:`Zero-pad both polynomials to length n = ${N}  (next power of 2 ≥ ${resLen}).\n→ n = next_pow2(${resLen}) = ${N}  →  ${lv} FFT levels\n→ A_pad = [${Apad.join(', ')}]\n→ B_pad = [${Bpad.join(', ')}]\n→ WHY power of 2: enables perfect even/odd splitting at every level\n→ Padding with zeros does NOT change the polynomial value`, detail:'Zero-pad',
+    ki:`Power-of-2 length ensures every recursion level splits into EXACTLY two equal halves — no remainders, no edge cases. This is what keeps the divide-and-conquer clean at all ${lv} levels and guarantees exactly log₂(n) = ${lv} levels of recursion.` });
 
   // FFT(A) levels
   steps.push({ phase:'FFT(A)', sub:'fftA', pcLine:3, mults:0, adds:0, level:-1,
-    expl:`Evaluate A_pad at all ${N} roots of unity: ω⁰, ω¹, …, ω^${N-1}.\n→ ωₙ = e^(2πi/${N}) = cos(2π/${N}) + i·sin(2π/${N})\n→ Strategy: A(x) = A_even(x²) + x · A_odd(x²)  — split by even/odd index\n→ A_even = [${Apad.filter((_,i)=>i%2===0).join(', ')}]\n→ A_odd  = [${Apad.filter((_,i)=>i%2===1).join(', ')}]\n→ ${lv} levels of recursion,  ${N/2} butterflies per level,  total: ${lv*(N/2)} butterflies`, detail:'FFT(A) start' });
+    expl:`Evaluate A_pad at all ${N} roots of unity: ω⁰, ω¹, …, ω^${N-1}.\n→ ωₙ = e^(2πi/${N}) = cos(2π/${N}) + i·sin(2π/${N})\n→ Strategy: A(x) = A_even(x²) + x · A_odd(x²)  — split by even/odd index\n→ A_even = [${Apad.filter((_,i)=>i%2===0).join(', ')}]\n→ A_odd  = [${Apad.filter((_,i)=>i%2===1).join(', ')}]\n→ ${lv} levels of recursion,  ${N/2} butterflies per level,  total: ${lv*(N/2)} butterflies`, detail:'FFT(A) start',
+    ki:`Cooley-Tukey key insight: A(ωₙᵏ) depends only on A_even(ω_{n/2}ᵏ) and A_odd(ω_{n/2}ᵏ). The second half of outputs (k + n/2) reuses the SAME sub-FFT results with just a sign flip — ω^(k+n/2) = −ωᵏ. No extra work. This shared reuse is what collapses O(n²) → O(n log n).` });
   for (let l=0; l<lv; l++) {
     const bsz=2<<l, half=bsz>>1, blocks=N/bsz;
     mults+=N/2; adds+=N;
@@ -1005,7 +1037,8 @@ function buildSteps() {
   // Pointwise
   mults+=N;
   steps.push({ phase:'Pointwise ×', sub:'pointwise', pcLine:5, mults, adds, level:lv,
-    expl:`Pointwise multiply: Y_C[k] = Y_A[k] × Y_B[k]  for k = 0 … ${N-1}.\n→ Y_A[k] = A(ωₙᵏ),  Y_B[k] = B(ωₙᵏ)  are complex DFT values\n→ Y_C[k] = A(ωₙᵏ) × B(ωₙᵏ) = C(ωₙᵏ)  — multiplication at a point\n→ This step is O(n) = ${N} complex multiplications  (each = 4 real ops)\n→ WHY it works: evaluation is a ring homomorphism: f(ω)·g(ω) = (fg)(ω)\n→ Naïve needed ${naiveOps} mults across all pairs — pointwise needs only ${N}`, detail:'Pointwise ×' });
+    expl:`Pointwise multiply: Y_C[k] = Y_A[k] × Y_B[k]  for k = 0 … ${N-1}.\n→ Y_A[k] = A(ωₙᵏ),  Y_B[k] = B(ωₙᵏ)  are complex DFT values\n→ Y_C[k] = A(ωₙᵏ) × B(ωₙᵏ) = C(ωₙᵏ)  — multiplication at a point\n→ This step is O(n) = ${N} complex multiplications  (each = 4 real ops)\n→ WHY it works: evaluation is a ring homomorphism: f(ω)·g(ω) = (fg)(ω)\n→ Naïve needed ${naiveOps} mults across all pairs — pointwise needs only ${N}`, detail:'Pointwise ×',
+    ki:`The Convolution Theorem: polynomial multiplication in coefficient space = pointwise multiplication in frequency space. FFT converts us into frequency space (O(n log n)), we multiply pointwise (O(n)), then IFFT converts back (O(n log n)). The hard O(n²) work disappears entirely.` });
   for (let k=0; k<N; k++) {
     steps.push({ phase:'Pointwise ×', sub:'pointwiseK', pcLine:6, mults:mults+k, adds, level:lv,
       expl:`k = ${k}:  computing C[${k}] = Y_A[${k}] × Y_B[${k}]\n→ Evaluation point: ωₙ^${k} = e^(2πi·${k}/${N})\n→ Y_A[${k}] and Y_B[${k}] are complex DFT values at this frequency\n→ Y_C[${k}] = Y_A[${k}] × Y_B[${k}]  ✓\n→ Progress: ${k+1} / ${N} pointwise products done`, detail:`PW k=${k}` });
@@ -1013,7 +1046,8 @@ function buildSteps() {
 
   // IFFT
   steps.push({ phase:'IFFT', sub:'ifft', pcLine:7, mults, adds, level:-1,
-    expl:`Inverse FFT: recover coefficients of C from point-values Y_C.\n→ Same butterfly structure as FFT, but twiddle = ω⁻¹ = e^(−2πi/${N})\n→ The DFT matrix D satisfies D·D̄ = ${N}·I  →  D⁻¹ = (1/${N})·D̄\n→ After butterflies: divide all ${N} values by n = ${N}\n→ This is the INTERPOLATION step — recovers unique polynomial through ${N} points\n→ IFFT cost: ${lv} levels × ${N/2} butterflies = ${lv*(N/2)} ops`, detail:'IFFT start' });
+    expl:`Inverse FFT: recover coefficients of C from point-values Y_C.\n→ Same butterfly structure as FFT, but twiddle = ω⁻¹ = e^(−2πi/${N})\n→ The DFT matrix D satisfies D·D̄ = ${N}·I  →  D⁻¹ = (1/${N})·D̄\n→ After butterflies: divide all ${N} values by n = ${N}\n→ This is the INTERPOLATION step — recovers unique polynomial through ${N} points\n→ IFFT cost: ${lv} levels × ${N/2} butterflies = ${lv*(N/2)} ops`, detail:'IFFT start',
+    ki:`The DFT is its own inverse up to conjugation and scaling. Negating the exponent (ω → ω⁻¹) reverses the transform direction; dividing by n scales it back. We write the FFT once and get IFFT almost for free — same butterfly diagram, same hardware, just flip the twiddle factor sign.` });
   for (let l=0; l<lv; l++) {
     const bsz=2<<l, half=bsz>>1, blocks=N/bsz;
     mults+=N/2; adds+=N;
@@ -1024,7 +1058,8 @@ function buildSteps() {
   // Result
   steps.push({ phase:'Done ✓', sub:'result', pcLine:8, mults, adds, level:lv+1,
     expl:`Algorithm complete — polynomial product computed! ✓\n→ C(x) = ${polyStr(C)}\n→ Coefficients: [${C.map(v=>Math.round(v*100)/100).join(', ')}]\n→ Total butterflies: ${(N/2)*lv*3}  (FFT(A) + FFT(B) + IFFT,  ${lv}×${N/2} each)\n→ Total ops: ~${fftOps}  vs  naïve ${naiveOps}  →  ${(naiveOps/fftOps).toFixed(1)}× speedup\n→ Complexity: O(n log n) = O(${N} · ${lv}) beats O(n²) = O(${naiveOps}) ✓`,
-    detail:'Done ✓', done:true });
+    detail:'Done ✓', done:true,
+    ki:`Three butterfly passes — FFT(A), FFT(B), IFFT — each O(n log n). The algorithm beats O(n²) by exploiting the algebraic structure of roots of unity to share computation across subproblems. Coined "the most important numerical algorithm of our lifetime" (Dongarra & Sullivan, 2000).` });
 
   // stats
   document.getElementById('statButterflies').textContent = (N/2)*lv*3;
@@ -1051,6 +1086,11 @@ function applyStep(i) {
   exEl.classList.remove('flash');
   void exEl.offsetWidth;
   exEl.classList.add('flash');
+  const kiEl = document.getElementById('keyInsight');
+  if (s.ki) {
+    document.getElementById('keyInsightText').innerHTML = s.ki.replace(/\n/g, '<br>');
+    kiEl.classList.add('visible');
+  } else { kiEl.classList.remove('visible'); }
   hlLine(s.pcLine);
   draw(i);
   if (s.done) {

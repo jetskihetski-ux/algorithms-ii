@@ -94,7 +94,7 @@ input[type="text"], input[type="number"], textarea,
   background: var(--bg1); border-bottom: 1px solid var(--border);
   flex-shrink: 0; max-height: 44px; overflow: hidden; transition: max-height .35s ease;
 }
-.lecture-strip.open { max-height: 520px; overflow-y: auto; }
+.lecture-strip.open { max-height: 700px; overflow: auto; }
 .lecture-toggle {
   display: flex; align-items: center; gap: 10px; padding: 12px 20px;
   cursor: pointer; user-select: none; border: none; background: none; width: 100%;
@@ -292,6 +292,9 @@ input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(61,
   transition: background .25s, border-color .25s;
 }
 .explanation.flash { background: rgba(61,169,252,.08); border-color: var(--acc); }
+.key-insight{background:rgba(16,217,160,.07);border-left:3px solid var(--grn);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:8px 11px;margin-top:8px;font-size:11px;color:var(--txt2);line-height:1.7;display:none;}
+.key-insight.visible{display:block;}
+.ki-label{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--grn);margin-bottom:5px;}
 .explanation br + span, .explanation br { display: block; margin-top: 2px; }
 /* arrow lines: "→ x = 5" style */
 .explanation .arrow-line { color: var(--grn); font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; }
@@ -488,6 +491,31 @@ m = m_q + h · q<br>
         <strong>RSA-CRT speedup:</strong> ~4× for 1024-bit keys
       </div>
     </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Correctness &amp; Uniqueness Proof</div>
+      <p>Why does the CRT formula always produce the correct, unique answer?</p>
+      <div class="concept-box">
+        <strong>Existence:</strong> The constructed x satisfies each congruence by design — term i contributes aᵢ to equation i and 0 to all others.<br>
+        <strong>Uniqueness:</strong> If x and y both satisfy all congruences, then mᵢ | (x−y) for all i. Since moduli are pairwise coprime, M = ∏mᵢ also divides (x−y). So x ≡ y (mod M) — only one solution in [0, M).
+      </div>
+      <div class="concept-box grn" style="margin-top:7px">
+        <strong>Ring isomorphism:</strong> CRT says ℤ/Mℤ ≅ ℤ/m₁ℤ × ℤ/m₂ℤ × … × ℤ/mₖℤ<br>
+        Solving the system = finding the preimage of (a₁, a₂, …, aₖ) under this isomorphism.
+      </div>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Common Pitfalls &amp; When CRT Fails</div>
+      <div class="concept-box ylw">
+        <strong>Non-coprime moduli:</strong> If gcd(mᵢ, mⱼ) ≠ 1, the system may have no solution or infinitely many solutions that don't reduce to a unique one mod M. CRT does NOT apply directly.
+      </div>
+      <div class="concept-box ylw" style="margin-top:7px">
+        <strong>Overflow in practice:</strong> M = ∏mᵢ grows exponentially. For k=10 moduli of ~100 each, M ≈ 10²⁰ — needs BigInt arithmetic (this tool uses JS BigInt for correctness).
+      </div>
+      <p style="margin-top:7px"><strong>Fix for non-coprime:</strong> Generalised CRT exists (check aᵢ ≡ aⱼ mod gcd(mᵢ,mⱼ) for all pairs) but is more complex — out of scope here.</p>
+    </div>
+
   </div>
 </div>
 
@@ -607,6 +635,7 @@ m = m_q + h · q<br>
     <div class="section-header">Step Explanation</div>
     <div class="section-body">
       <div class="explanation" id="explanation">Configure input above and press Build to start the animated walkthrough.</div>
+      <div class="key-insight" id="keyInsight"><div class="ki-label">💡 Key Insight</div><div id="keyInsightText"></div></div>
     </div>
   </div>
 
@@ -783,7 +812,8 @@ function buildCRTSteps(eqs) {
 
   st.push({ ph:'COMPUTE_M', title:'Step 2 — Compute M = product of all moduli',
     ex:`Multiply all moduli together to get the master modulus M.\n→ M = ${mis.join(' × ')} = ${M}\n→ The unique solution lives in [0, ${M}) — like a clock of size ${M}\n→ Every other solution is x + k·M for integer k (infinitely many, but only one canonical)`,
-    pc:[2], data:{ M, step:'M' } });
+    pc:[2], data:{ M, step:'M' },
+    ki:`M is the "universe" — a single number simultaneously divisible by all moduli. By CRT, there is EXACTLY ONE solution in [0, M). This uniqueness is why CRT is so powerful: despite having k separate equations, the answer is unique and constructible in polynomial time.` });
 
   for (let i = 0; i < k; i++) {
     st.push({ ph:'COMPUTE_Mi', title:`Step 3.${i+1}a — M${i+1} = M / m${i+1} (complement product)`,
@@ -803,7 +833,8 @@ function buildCRTSteps(eqs) {
 
     st.push({ ph:'GOT_Yi', title:`Step 3.${i+1}c — Inverse confirmed: y${i+1} = ${yiFinal}`,
       ex:`Extended Euclidean Algorithm returns y${i+1} = ${yiFinal}.\n→ Verify: ${Mis[i]} × ${yiFinal} = ${Mis[i]*yiFinal}\n→ ${Mis[i]*yiFinal} mod ${mis[i]} = ${(Mis[i]*yiFinal)%mis[i]} ✓  (must equal 1)\n→ So M${i+1} · y${i+1} ≡ 1 (mod m${i+1}) — confirmed\n→ y${i+1} acts as the "correction factor" that makes M${i+1} behave like 1 inside ℤ/${mis[i]}ℤ`,
-      pc:[7], data:{ M, Mis: Mis.slice(0,i+1), yis:[...yis], partials:[...partials], activeEq:i, step:'yi' } });
+      pc:[7], data:{ M, Mis: Mis.slice(0,i+1), yis:[...yis], partials:[...partials], activeEq:i, step:'yi' },
+      ki:`The inverse exists because gcd(Mᵢ, mᵢ) = 1 — guaranteed by the pairwise coprime condition. Bézout's identity says: if gcd(a,b) = 1, then integers s,t exist with s·a + t·b = 1. ExtGCD finds exactly those s,t. Here s = yᵢ is the inverse we need.` });
 
     const partial = ais[i] * Mis[i] * yiFinal;
     partials.push(partial);
@@ -819,7 +850,8 @@ function buildCRTSteps(eqs) {
 
   st.push({ ph:'SUM', title:`Step 4 — Sum all ${k} partial terms`,
     ex:`Add all k terms. Each termᵢ contributes aᵢ to congruence i and 0 to all others — they sum independently.\n→ x (raw) = ${partials.map((p,j)=>`term${j+1}`).join(' + ')} = ${partials.join(' + ')}\n→ x (raw) = ${rawSum}\n→ ${rawSum} ÷ ${M} = ${rawSum/M} remainder ${rawSum%M}\n→ Reduce mod M = ${M}  →  x = ${solution}`,
-    pc:[9], data:{ M, Mis, yis, partials, rawSum, step:'sum' } });
+    pc:[9], data:{ M, Mis, yis, partials, rawSum, step:'sum' },
+    ki:`Each term is a "selector" — it activates exactly one equation and is invisible to all others. Summing them is like adding independent signals: the total satisfies every congruence simultaneously. Reducing mod M gives the unique canonical solution.` });
 
   st.push({ ph:'RESULT', title:`Step 5 — SOLUTION: x = ${solution}`,
     ex:`Unique solution found in [0, ${M}).\n→ x = ${solution}\n${eqs.map((e,i)=>`→ ${solution} mod ${mis[i]} = ${solution%mis[i]}  (need ${ais[i]}) ${solution%mis[i]===ais[i]?'✓':'✗'}`).join('\n')}\n→ All ${k} congruences satisfied ✓\n→ Next solution: x + M = ${solution+M}  (but x = ${solution} is the canonical one)`,
@@ -852,7 +884,8 @@ function buildRSASteps() {
   const dp = d % (p-1n), dq = d % (q-1n);
   st.push({ ph:'RSA_REDUCE', title:`Step 3 — Reduce exponents: dp = d mod (p−1),  dq = d mod (q−1)`,
     ex:`Fermat's Little Theorem: a^(p−1) ≡ 1 (mod p) for any prime p. So c^d ≡ c^(d mod p−1) (mod p) — we only need the reduced exponent!\n→ dp = ${d} mod ${p-1n} = ${dp}  (exponent for mod-p sub-problem)\n→ dq = ${d} mod ${q-1n} = ${dq}  (exponent for mod-q sub-problem)\n→ dp and dq are much smaller than d — fewer squarings needed\n→ Exponent size reduction: d has ${d.toString().length} digit(s), dp=${dp.toString().length} digit(s), dq=${dq.toString().length} digit(s)`,
-    pc:[4,5], rsa:{p,q,n,phi,e,c,d,dp,dq} });
+    pc:[4,5], rsa:{p,q,n,phi,e,c,d,dp,dq},
+    ki:`Fermat's Little Theorem says a^(p−1) ≡ 1 (mod p), so exponents cycle with period p−1. Instead of raising c to the huge exponent d, we only raise it to d mod (p−1) — which can be dramatically smaller. This is what makes the sub-problems cheap.` });
 
   st.push({ ph:'RSA_DIRECT', title:'Step 4 — Direct decryption path (why it is slow)',
     ex:`For comparison: the naive approach computes m = c^d mod n directly.\n→ Direct: c^d mod n = ${c}^${d} mod ${n}\n→ Requires ≈ log₂(d) ≈ ${Math.floor(Math.log2(Number(d)+1))} squarings, each mod ${n}\n→ Each squaring costs O(log²n) — total O(log(d) · log²(n))\n→ CRT avoids this: use two sub-problems mod p and mod q instead\n→ Speedup: ≈ 4× because (log p)² + (log q)² ≈ 2·(log n / 2)² = ½·log²(n)`,
@@ -866,7 +899,8 @@ function buildRSASteps() {
   const mq = modPow(c, dq, q);
   st.push({ ph:'RSA_MQ', title:`Step 6 — CRT sub-problem 2: m_q = c^dq mod q`,
     ex:`Compute m_q = c^dq mod q. Independent of step 5 — can be parallelised on multi-core hardware.\n→ m_q = ${c}^${dq} mod ${q} = ${mq}\n→ m_q satisfies: m_q ≡ m (mod q)  — the "shadow" of m in ℤ/qℤ\n→ Two shadows computed: mₚ = ${mp} (mod ${p}) and m_q = ${mq} (mod ${q})\n→ Total CRT cost so far ≈ 2 × ¼ direct cost = ½ direct cost → ~4× speedup\n→ Next: combine mₚ and m_q using Garner's formula`,
-    pc:[8], rsa:{p,q,n,phi,e,c,d,dp,dq,mp,mq} });
+    pc:[8], rsa:{p,q,n,phi,e,c,d,dp,dq,mp,mq},
+    ki:`Modular multiplication cost scales as O(log²n). Halving the modulus (p ≈ n/2 bits) makes each squaring ≈ 4× cheaper. Two such half-size exponentiations cost 2 × ¼ = ½ the direct cost — the ~4× RSA-CRT speedup comes directly from this quadratic scaling.` });
 
   const {g:g2, s:s2} = extGCD(q, p); gcdCalls++;
   const qInv = ((s2 % p) + p) % p;
@@ -883,7 +917,8 @@ function buildRSASteps() {
   const m = mq + h*q;
   st.push({ ph:'RSA_DONE', title:`Step 9 — Plaintext: m = m_q + h·q`,
     ex:`Reconstruct the plaintext using Garner's formula — result is automatically in [0, n).\n→ m = m_q + h·q = ${mq} + ${h} × ${q} = ${mq} + ${h*q} = ${m}\n→ Verify mod p: ${m} mod ${p} = ${m%p}  (must equal mₚ = ${mp}) ${m%p===mp?'✓':'✗'}\n→ Verify mod q: ${m} mod ${q} = ${m%q}  (must equal m_q = ${mq}) ${m%q===mq?'✓':'✗'}\n→ Re-encrypt check: ${m}^${e} mod ${n} = ${modPow(m,e,n)}  (original c = ${c}) ${modPow(m,e,n)===c?'✓ CORRECT':'⚠ check inputs'}\n→ Total ExtGCD calls: ${gcdCalls}  |  Speedup: ~4× vs direct`,
-    pc:[11,12], rsa:{p,q,n,phi,e,c,d,dp,dq,mp,mq,qInv,h,m} });
+    pc:[11,12], rsa:{p,q,n,phi,e,c,d,dp,dq,mp,mq,qInv,h,m},
+    ki:`Garner's formula reconstructs m without ever computing mod n. All intermediate values stay in [0, p) — small and fast. The formula is a mixed-radix representation: m = m_q + h·q is already in [0, n) by construction, so no final mod n reduction needed.` });
 
   return st;
 }
@@ -1218,6 +1253,11 @@ function applyStep(i) {
   exEl.innerHTML = (s.ex || '').replace(/\n/g, '<br>');
   exEl.classList.add('flash');
   setTimeout(() => exEl.classList.remove('flash'), 350);
+  const kiEl = document.getElementById('keyInsight');
+  if (s.ki) {
+    document.getElementById('keyInsightText').innerHTML = s.ki.replace(/\n/g, '<br>');
+    kiEl.classList.add('visible');
+  } else { kiEl.classList.remove('visible'); }
   hlLines(s.pc || []);
   document.getElementById('stepCounter').textContent = `${i+1} / ${steps.length}`;
 

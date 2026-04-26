@@ -104,6 +104,9 @@ input[type="range"]{flex:1;accent-color:var(--acc);}
 .explanation{background:var(--bg0);border-left:3px solid var(--acc);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:10px 12px;font-size:11px;color:var(--txt2);line-height:1.7;min-height:54px;transition:background .25s,border-color .25s;}
 @keyframes expl-flash{0%{background:rgba(61,169,252,.13);border-color:var(--acc)}100%{background:var(--bg0);border-color:var(--acc)}}
 .explanation.flash{animation:expl-flash .4s ease-out;}
+.key-insight{background:rgba(16,217,160,.07);border-left:3px solid var(--grn);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:8px 11px;margin-top:8px;font-size:11px;color:var(--txt2);line-height:1.7;display:none;}
+.key-insight.visible{display:block;}
+.ki-label{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--grn);margin-bottom:5px;}
 
 .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
 .stat-box{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 6px;text-align:center;}
@@ -246,6 +249,33 @@ svg.canvas{width:100%;height:100%;display:block;}
       <p style="margin-top:7px">In practice, Graham Scan is preferred due to its predictable performance and cache-friendly stack operations.</p>
     </div>
 
+
+    <div class="lec-card">
+      <div class="lec-card-title">Real-World Applications</div>
+      <div class="concept-box">
+        <strong>Game / Robotics collision detection:</strong> compute convex hulls of both objects — if hulls don't intersect, objects can't collide. O(n log n) preprocessing, O(log n) per query.<br>
+        <strong>GIS &amp; mapping:</strong> smallest enclosing polygon for a set of GPS coordinates; port boundary detection.<br>
+        <strong>Computer vision:</strong> hand pose estimation, object boundary detection, alpha shapes.
+      </div>
+      <div class="concept-box grn" style="margin-top:7px">
+        <strong>Gift wrapping in 3D:</strong> Jarvis March extends to 3D — each face of the convex polyhedron is found by rotating an edge. Complexity O(nf) where f = number of faces.<br>
+        <strong>Quickhull algorithm:</strong> practical alternative — O(n log n) average, O(n²) worst — used by many geometry libraries (CGAL, SciPy).
+      </div>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Degenerate Cases &amp; Precision</div>
+      <div class="concept-box ylw">
+        <strong>All collinear points:</strong> strict Graham Scan (pop on collinear) returns just 2 endpoints. This tool pops collinear points (cross = 0 → pop) — the standard definition. Some variants keep them.
+      </div>
+      <div class="concept-box ylw" style="margin-top:7px">
+        <strong>Duplicate points:</strong> handled correctly here — duplicates sort together and get popped during the scan. No special case needed.
+      </div>
+      <div class="concept-box" style="margin-top:7px">
+        <strong>Floating-point precision:</strong> real-world implementations use integer or exact arithmetic for the cross product test. Near-collinear points (cross ≈ 0) can cause incorrect orientation with floats. This tool uses integer coordinates to avoid this issue.
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -333,6 +363,7 @@ svg.canvas{width:100%;height:100%;display:block;}
   <div class="section">
     <div class="section-header">Step Explanation</div>
     <div class="explanation" id="stepExplain">Select a mode and press <strong>Build Steps</strong> to begin.</div>
+    <div class="key-insight" id="keyInsight"><div class="ki-label">💡 Key Insight</div><div id="keyInsightText"></div></div>
   </div>
 
   <div class="section">
@@ -546,7 +577,8 @@ function buildGrahamSteps(pts) {
   res.push({ phase:'Sort by Angle', detail:`${n-1} pts sorted`, pcLine:2,
     st:{...base, pivot:pivotIdx, sorted:[...sorted]},
     expl:`Sort ${n-1} points by polar angle from P${pivotIdx}.\n→ Sorted order: ${sorted.map(i=>`P${i}`).join(' → ')}\n→ Angles: ${others.map(i=>`P${i}: ${(Math.atan2(pts[i].y-pivot.y, pts[i].x-pivot.x)*180/Math.PI).toFixed(1)}°`).join(', ')}\n→ Ties broken by distance from pivot (farther point is better)\n→ Sort cost: O(n log n) ≈ ${comps} total comparisons so far`,
-    comparisons:comps, hullSize:0, pops:0 });
+    comparisons:comps, hullSize:0, pops:0,
+    ki:`Sorting by polar angle is what makes the scan linear. After sorting, we process points in strict CCW order — we will NEVER need to revisit an earlier angle. This monotone ordering lets a simple stack maintain the convex chain invariant in O(n) time.` });
 
   if (sorted.length < 3) return res;
 
@@ -575,14 +607,16 @@ function buildGrahamSteps(pts) {
       res.push({ phase:`Pop P${popped}`, detail:`cp=${Math.round(cp)}`, pcLine:8,
         st:{...base, pivot:pivotIdx, sorted:[...sorted], stack:[...stack], hull:[...stack], active:pi, rejected:[popped]},
         expl:`Cross product test: cross(P${A}, P${popped}, P${pi}) = ${cp.toFixed(1)}\n→ Formula: (P${popped}.x−P${A}.x)·(P${pi}.y−P${A}.y) − (P${popped}.y−P${A}.y)·(P${pi}.x−P${A}.x)\n→ = (${pts[popped].x-pts[A].x})·(${pts[pi].y-pts[A].y}) − (${pts[popped].y-pts[A].y})·(${pts[pi].x-pts[A].x}) = ${cp.toFixed(1)}\n→ Result ≤ 0 → ${cp < 0 ? 'RIGHT TURN (clockwise)' : 'COLLINEAR'} → P${popped} is NOT a hull vertex!\n→ POP P${popped}  |  Stack now: [${stack.map(i=>`P${i}`).join(', ')}]`,
-        comparisons:comps, hullSize:stack.length, pops:popsTotal });
+        comparisons:comps, hullSize:stack.length, pops:popsTotal,
+        ki:`A right turn (cross ≤ 0) means P${popped} lies on the "inside of the bend" — there exists a half-plane that puts it strictly inside the hull. Interior points can NEVER be hull vertices by definition. Popping it maintains the CCW convex chain invariant.` });
     }
 
     stack.push(pi);
     res.push({ phase:`Push P${pi}`, detail:`Size: ${stack.length}`, pcLine:9,
       st:{...base, pivot:pivotIdx, sorted:[...sorted], stack:[...stack], hull:[...stack], active:pi},
       expl:`Push P${pi} — makes a valid left turn with the stack top.\n→ Cross product > 0 → LEFT TURN (counterclockwise) → P${pi} is a hull candidate ✓\n→ Stack: [${stack.map(i=>`P${i}`).join(', ')}]\n→ Hull size so far: ${stack.length}  |  Total pops: ${popsTotal}`,
-      comparisons:comps, hullSize:stack.length, pops:popsTotal });
+      comparisons:comps, hullSize:stack.length, pops:popsTotal,
+      ki:`A left turn (cross > 0) preserves the CCW convex chain property. P${pi} is kept as a CANDIDATE hull vertex — it may still be popped later if a future point creates a right turn with it. The stack always holds the current best convex chain.` });
   }
 
   res.push({ phase:'Done ✓', detail:`${stack.length} hull pts`, pcLine:10,
@@ -647,7 +681,8 @@ function buildJarvisSteps(pts) {
     res.push({ phase:`Accept P${candidate}`, detail:`Hull vertex ${hullVerts.length+1}`, pcLine:9,
       st:{...base, pivot:startIdx, hull:[...hullVerts], stack:[...hullVerts], active:candidate, candidate:-1},
       expl:`P${candidate}(${pts[candidate].x},${pts[candidate].y}) is the most counterclockwise from P${current}.\n→ No other point lies to the left of line P${current}→P${candidate}\n→ Therefore P${candidate} is the next convex hull vertex ✓\n→ Hull so far: [${hullVerts.map(i=>`P${i}`).join(', ')}] + P${candidate}\n→ Cumulative comparisons: ${comps}`,
-      comparisons:comps, hullSize:hullVerts.length + 1, pops:0 });
+      comparisons:comps, hullSize:hullVerts.length + 1, pops:0,
+      ki:`P${candidate} is guaranteed on the hull because all other points lie to its RIGHT from P${current}'s perspective. By definition, a convex hull edge has ALL other points on or to the right. We just confirmed that for P${current}→P${candidate} — no further verification needed.` });
 
     current = candidate;
     if (current === startIdx) break;
@@ -704,6 +739,11 @@ function applyStep(i) {
   exEl.classList.remove('flash');
   void exEl.offsetWidth;
   exEl.classList.add('flash');
+  const kiEl = document.getElementById('keyInsight');
+  if (s.ki) {
+    document.getElementById('keyInsightText').innerHTML = s.ki.replace(/\n/g, '<br>');
+    kiEl.classList.add('visible');
+  } else { kiEl.classList.remove('visible'); }
 
   hlLine(s.pcLine);
   draw(i);
