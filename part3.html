@@ -33,7 +33,7 @@ code,.pseudocode,.pc-code,.pc-num,input[type="text"],input[type="number"],textar
 .part-link.active{color:var(--acc);background:rgba(61,169,252,.1);}
 
 .lecture-strip{background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;overflow:hidden;max-height:38px;transition:max-height .3s ease;}
-.lecture-strip.open{max-height:520px;overflow-y:auto;}
+.lecture-strip.open{max-height:700px;overflow:auto;}
 .lecture-toggle{width:100%;background:none;border:none;padding:10px 20px;color:var(--txt2);cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;text-align:left;display:flex;align-items:center;gap:10px;}
 .lecture-toggle:hover{color:var(--acc);}
 .lecture-toggle-arrow{margin-left:auto;font-size:9px;transition:transform .2s;}
@@ -639,7 +639,7 @@ function buildJarvisSteps(pts) {
         candidate = i;
         res.push({ phase:`Update candidate`, detail:`P${oldCand}→P${candidate}`, pcLine:8,
           st:{...base, pivot:startIdx, hull:[...hullVerts], stack:[...hullVerts], active:current, candidate, rejected:[oldCand]},
-          expl:`cross(P${current}, P${oldCand}, P${i}) = ${cp.toFixed(1)} > 0\n→ P${i}(${pts[i].x},${pts[i].y}) is MORE counterclockwise than P${oldCand}\n→ Update candidate: P${oldCand} → P${i}\n→ New candidate: P${candidate}(${pts[candidate].x},${pts[candidate].y})\n→ Comparisons so far: ${comps}  |  Hull so far: ${hullVerts.length} vertices`,
+          expl:`cross(P${current}, P${oldCand}, P${i}) = ${cp.toFixed(1)}\n→ ${cp > 0 ? `${cp.toFixed(1)} > 0 → P${i} is MORE counterclockwise than P${oldCand}` : `= 0 (collinear) AND dist(P${current},P${i}) > dist(P${current},P${oldCand}) → prefer farther collinear point`}\n→ Update candidate: P${oldCand} → P${i}\n→ New candidate: P${candidate}(${pts[candidate].x},${pts[candidate].y})\n→ Comparisons so far: ${comps}  |  Hull so far: ${hullVerts.length} vertices`,
           comparisons:comps, hullSize:hullVerts.length, pops:0 });
       }
     }
