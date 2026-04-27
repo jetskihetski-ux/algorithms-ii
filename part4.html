@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Part 4 — Greedy Set Cover | BSD 404</title>
+<style>
+:root {
+  --bg0:#0b0f1a;--bg1:#0f1729;--bg2:#141e35;--bg3:#192340;--bg4:#1e2a4a;
+  --border:#1f2e50;--border2:#27395e;
+  --txt:#e2eaf8;--txt2:#8da3c4;--txt3:#4a6080;
+  --acc:#3da9fc;--acc2:#8b5cf6;--grn:#10d9a0;--red:#f0504a;--ylw:#f6b93b;--org:#f0803c;
+  --radius-sm:6px;--radius-md:10px;--radius-lg:14px;
+  --shadow-sm:0 1px 4px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.03);
+  --shadow-md:0 4px 16px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.04);
+  --glow-acc:0 0 0 1px rgba(61,169,252,.25),0 0 16px rgba(61,169,252,.08);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{font-size:13px;}
+body{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:var(--bg0);color:var(--txt);min-height:100vh;display:flex;flex-direction:column;overflow:hidden;height:100vh;}
+code,.pseudocode,.pc-code,.pc-num,input[type="text"],input[type="number"],textarea,.stat-val,.step-counter,.explanation,.history-table{font-family:'IBM Plex Mono','Cascadia Code','Fira Code',monospace;}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-track{background:var(--bg1);}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+
+.top-header{background:linear-gradient(90deg,#0d1427 0%,#0b1122 100%);border-bottom:1px solid var(--border);padding:0 20px;display:flex;align-items:center;gap:20px;height:50px;flex-shrink:0;}
+.brand{display:flex;align-items:center;gap:9px;flex-shrink:0;}
+.brand-diamond{width:7px;height:7px;background:var(--acc);transform:rotate(45deg);box-shadow:0 0 8px rgba(61,169,252,.6);}
+.brand-name{font-size:12px;font-weight:700;color:var(--txt);letter-spacing:.2px;}
+.part-nav{display:flex;gap:4px;margin-left:auto;}
+.part-link{padding:5px 10px;border-radius:var(--radius-sm);font-size:10px;font-weight:600;letter-spacing:.3px;text-decoration:none;color:var(--txt3);transition:color .15s,background .15s;}
+.part-link:hover{color:var(--acc);background:rgba(61,169,252,.06);}
+.part-link.active{color:var(--acc);background:rgba(61,169,252,.1);}
+
+.lecture-strip{background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;overflow:hidden;max-height:38px;transition:max-height .3s ease;}
+.lecture-strip.open{max-height:700px;overflow:auto;}
+.lecture-toggle{width:100%;background:none;border:none;padding:10px 20px;color:var(--txt2);cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;text-align:left;display:flex;align-items:center;gap:10px;}
+.lecture-toggle:hover{color:var(--acc);}
+.lecture-toggle-arrow{margin-left:auto;font-size:9px;transition:transform .2s;}
+.lecture-strip.open .lecture-toggle-arrow{transform:rotate(180deg);}
+.lecture-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:0 20px 18px;}
+.lec-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-md);padding:13px 14px;}
+.lec-card-title{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--acc);margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+.lec-card-title::before{content:'';display:inline-block;width:3px;height:9px;border-radius:2px;background:var(--acc);flex-shrink:0;}
+.lec-card p,.lec-card li{font-size:11px;color:var(--txt2);line-height:1.75;}
+.concept-box{background:rgba(61,169,252,.05);border-left:3px solid var(--acc);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:8px 11px;margin:8px 0;font-size:10.5px;line-height:1.65;color:var(--txt2);}
+.concept-box.grn{border-color:var(--grn);background:rgba(16,217,160,.05);}
+.concept-box.ylw{border-color:var(--ylw);background:rgba(246,185,59,.05);}
+.concept-box.pur{border-color:var(--acc2);background:rgba(139,92,246,.05);}
+.concept-box.red{border-color:var(--red);background:rgba(240,80,74,.05);}
+.lec-code{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--txt2);line-height:1.85;margin:8px 0;}
+.lec-code .kw{color:var(--acc2);}.lec-code .fn{color:var(--acc);}.lec-code .cm{color:var(--txt3);font-style:italic;}
+
+.tool-body{display:grid;grid-template-columns:420px 1fr;flex:1;min-height:0;overflow:hidden;}
+.left-panel{background:var(--bg1);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;gap:9px;padding:12px;}
+.section{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;flex-shrink:0;box-shadow:var(--shadow-sm);}
+.section:focus-within{box-shadow:var(--glow-acc);}
+.section-header{background:var(--bg3);padding:7px 12px;font-family:'Inter',system-ui,sans-serif;font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--txt3);border-bottom:1px solid var(--border);}
+.section-header.grn{color:var(--grn);}
+.section-header.ylw{color:var(--ylw);}
+.section-body{padding:10px 12px;}
+label{display:block;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);margin-bottom:5px;}
+input[type="text"],input[type="number"],textarea{width:100%;background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;color:var(--txt);font-size:12px;outline:none;transition:border-color .15s;}
+input:focus,textarea:focus{border-color:var(--acc);}
+textarea{resize:vertical;min-height:90px;line-height:1.6;}
+
+.presets{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;}
+.preset-btn{padding:4px 9px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:9px;font-weight:600;color:var(--txt3);cursor:pointer;transition:all .15s;font-family:'Inter',system-ui,sans-serif;}
+.preset-btn:hover{color:var(--acc);border-color:var(--acc);}
+.preset-btn.active{background:rgba(61,169,252,.1);border-color:var(--acc);color:var(--acc);}
+
+.speed-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.speed-label-txt{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);white-space:nowrap;}
+.speed-val{font-size:10px;color:var(--acc);min-width:38px;text-align:right;}
+input[type="range"]{flex:1;accent-color:var(--acc);}
+.ctrl-row{display:flex;gap:5px;flex-wrap:wrap;}
+.ctrl-btn{padding:6px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);font-size:10px;font-weight:600;color:var(--txt2);cursor:pointer;transition:all .15s;font-family:'Inter',system-ui,sans-serif;}
+.ctrl-btn:hover:not(:disabled){background:rgba(61,169,252,.1);border-color:var(--acc);color:var(--acc);}
+.ctrl-btn:disabled{opacity:.35;cursor:not-allowed;}
+.ctrl-btn.primary{background:rgba(61,169,252,.12);border-color:var(--acc);color:var(--acc);}
+.status-row{display:flex;align-items:center;gap:10px;margin-top:8px;}
+.badge{padding:3px 10px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.badge-idle{background:rgba(74,96,128,.15);color:var(--txt3);}
+.badge-ready{background:rgba(61,169,252,.15);color:var(--acc);}
+.badge-playing{background:rgba(16,217,160,.15);color:var(--grn);}
+.badge-paused{background:rgba(246,185,59,.15);color:var(--ylw);}
+.badge-done{background:rgba(16,217,160,.2);color:var(--grn);}
+.step-counter{font-size:10px;color:var(--txt3);margin-left:auto;}
+
+.pseudocode{background:var(--bg0);border-radius:var(--radius-sm);padding:7px 5px;max-height:180px;overflow-y:auto;font-size:11px;}
+.pc-line{display:flex;gap:8px;padding:2px 6px;border-radius:3px;white-space:pre;transition:background .15s;position:relative;}
+.pc-line:hover{background:rgba(61,169,252,.06);}
+.pc-line.active{background:rgba(61,169,252,.14);box-shadow:inset 3px 0 0 var(--acc);}
+.pc-num{color:var(--txt3);min-width:18px;text-align:right;user-select:none;}
+.pc-code{color:var(--txt2);}
+.pc-line.active .pc-code{color:var(--acc);}
+.pc-line[data-tip]:hover::after{content:attr(data-tip);position:absolute;left:calc(100% + 8px);top:0;background:var(--bg4);border:1px solid var(--border2);padding:6px 10px;border-radius:var(--radius-sm);font-size:10px;font-family:'Inter',system-ui,sans-serif;color:var(--txt);white-space:normal;max-width:220px;z-index:300;pointer-events:none;box-shadow:var(--shadow-md);line-height:1.5;}
+
+.explanation{background:var(--bg0);border-left:3px solid var(--acc);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:10px 12px;font-size:11px;color:var(--txt2);line-height:1.7;min-height:54px;transition:background .25s,border-color .25s;}
+@keyframes expl-flash{0%{background:rgba(61,169,252,.13);border-color:var(--acc)}100%{background:var(--bg0);border-color:var(--acc)}}
+.explanation.flash{animation:expl-flash .4s ease-out;}
+.key-insight{background:rgba(16,217,160,.07);border-left:3px solid var(--grn);border-radius:0 var(--radius-sm) var(--radius-sm) 0;padding:8px 11px;margin-top:8px;font-size:11px;color:var(--txt2);line-height:1.7;display:none;}
+.key-insight.visible{display:block;}
+.ki-label{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--grn);margin-bottom:5px;}
+
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+.stat-box{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 6px;text-align:center;}
+.stat-val{display:block;font-size:14px;font-weight:700;color:var(--acc);}
+.stat-lbl{display:block;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);margin-top:3px;font-family:'Inter',system-ui,sans-serif;}
+
+.history-wrap{max-height:150px;overflow-y:auto;border-radius:var(--radius-sm);border:1px solid var(--border);}
+.history-table{width:100%;border-collapse:collapse;font-size:10px;}
+.history-table th{background:var(--bg3);padding:6px 8px;text-align:left;color:var(--txt3);font-family:'Inter',system-ui,sans-serif;font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:1px;position:sticky;top:0;}
+.history-table td{padding:4px 8px;border-bottom:1px solid rgba(31,46,80,.6);color:var(--txt2);cursor:pointer;transition:background .12s;}
+.history-table tr:hover td{background:rgba(61,169,252,.06);color:var(--txt);}
+.history-table tr.current td{background:rgba(61,169,252,.1);color:var(--acc);}
+
+.right-panel{display:flex;flex-direction:column;background:var(--bg0);overflow:hidden;}
+.viz-header{padding:11px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:linear-gradient(90deg,var(--bg1) 0%,rgba(15,23,41,.8) 100%);flex-shrink:0;}
+.viz-title{font-family:'Inter',system-ui,sans-serif;font-size:12px;font-weight:700;color:var(--txt);}
+.legend{display:flex;gap:12px;margin-left:auto;flex-wrap:wrap;}
+.legend-item{display:flex;align-items:center;gap:5px;font-family:'Inter',system-ui,sans-serif;font-size:9px;font-weight:500;color:var(--txt2);}
+.legend-dot{width:9px;height:9px;border-radius:3px;flex-shrink:0;}
+
+.viz-area{flex:1;position:relative;overflow:hidden;}
+svg.canvas{width:100%;height:100%;display:block;}
+.viz-placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--txt3);font-family:'Inter',system-ui,sans-serif;font-size:11px;letter-spacing:.5px;pointer-events:none;user-select:none;}
+.viz-placeholder .ph-icon{font-size:40px;opacity:.2;}
+
+@keyframes node-glow{0%,100%{filter:drop-shadow(0 0 4px currentColor)}50%{filter:drop-shadow(0 0 14px currentColor)}}
+.anim-glow{animation:node-glow 1.4s ease-in-out infinite;}
+.viz-node{transition:fill .2s,stroke .2s,opacity .2s;}
+
+.cover-strip{background:var(--bg1);border-top:1px solid var(--border);padding:9px 20px;font-family:'IBM Plex Mono',monospace;font-size:11px;flex-shrink:0;min-height:38px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+
+@media(max-width:1400px){.lecture-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:980px){.tool-body{grid-template-columns:1fr;}.left-panel{max-height:55vh;order:2;}.right-panel{order:1;}.lecture-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.lecture-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+
+<header class="top-header">
+  <div class="brand">
+    <span class="brand-diamond"></span>
+    <span class="brand-name">BSD 404 — Algorithms II</span>
+  </div>
+  <nav class="part-nav">
+    <a class="part-link" href="part1.html">Part 1 — FFT</a>
+    <a class="part-link" href="part2.html">Part 2 — CRT &amp; RSA</a>
+    <a class="part-link" href="part3.html">Part 3 — Convex Hull</a>
+    <a class="part-link active" href="part4.html">Part 4 — Set Cover</a>
+  </nav>
+</header>
+
+<!-- LECTURE STRIP -->
+<div class="lecture-strip" id="lectureStrip">
+  <button class="lecture-toggle" onclick="toggleLecture()">
+    <span>📦</span>
+    <span>Lecture Notes — Greedy Set Cover Approximation (CLO-5)</span>
+    <span class="lecture-toggle-arrow">▼</span>
+  </button>
+  <div class="lecture-grid">
+
+    <div class="lec-card">
+      <div class="lec-card-title">What is Set Cover?</div>
+      <p>Given a universe U of n elements and a collection S of subsets, find the <em>minimum</em> number of subsets whose union equals U.</p>
+      <div class="concept-box">
+        <strong>Formally:</strong> find C ⊆ S such that ⋃C = U and |C| is minimised.<br>
+        <strong>Decision version:</strong> can we cover U with ≤ k sets? — NP-complete (Karp, 1972).
+      </div>
+      <p style="margin-top:7px"><strong>Examples:</strong> placing sensors to monitor all locations, selecting database indexes to cover all queries, choosing test cases to cover all code paths.</p>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">NP-Hardness &amp; Why Greedy?</div>
+      <p>Set Cover is NP-hard — no known polynomial-time exact algorithm exists unless P = NP.</p>
+      <div class="concept-box ylw">
+        <strong>Exact approach:</strong> try all 2^|S| subsets → exponential, infeasible.<br>
+        <strong>Greedy approach:</strong> polynomial time O(n · |S|), provably near-optimal.
+      </div>
+      <div class="concept-box grn" style="margin-top:7px">
+        <strong>Key insight:</strong> greedy gives an H(n)-approximation — the solution is at most ln(n)+1 times the optimal. For n=100, that's ≤ 5.6× OPT. Often much better in practice.
+      </div>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Greedy Algorithm</div>
+      <div class="lec-code">
+<span class="fn">GREEDY-SET-COVER</span>(U, S):
+  covered ← ∅
+  cover ← []
+  <span class="kw">while</span> covered ≠ U:
+    <span class="kw">for each</span> s <span class="kw">in</span> S:
+      gain(s) ← |s \ covered|
+    s* = <span class="fn">argmax</span>{ gain(s) }
+    cover.append(s*)
+    covered ← covered ∪ s*
+  <span class="kw">return</span> cover  <span class="cm">// ≤ H(n)·|OPT|</span>
+      </div>
+      <p>At each step, pick the set covering the most <em>currently uncovered</em> elements. Repeat until all elements are covered.</p>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Approximation Ratio H(n)</div>
+      <p>The greedy algorithm produces a cover of size at most H(n) · |OPT|.</p>
+      <div class="concept-box">
+        <strong>H(n) = 1 + 1/2 + 1/3 + … + 1/n ≈ ln(n) + 0.577</strong><br>
+        H(1)=1, H(2)=1.5, H(4)≈2.08, H(8)≈2.72, H(100)≈5.19
+      </div>
+      <div class="concept-box grn" style="margin-top:7px">
+        <strong>Why H(n)?</strong> If OPT needs k sets, the best uncovered set covers ≥ 1/k fraction of remaining elements. Each iteration "pays off" at most H(n)/OPT steps total — like the coupon collector problem.
+      </div>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Proof of H(n) Bound</div>
+      <p>The elegant <em>charging argument</em>:</p>
+      <div class="concept-box">
+        <strong>Assign cost 1/gain(s*)</strong> to each element newly covered by s*.<br>
+        Total cost = |cover| (one cost-1 set covers 1st new element, etc.).<br>
+        Each element e pays at most 1/1 + 1/2 + … = H(n_e) where n_e = elements uncovered when e was first covered.
+      </div>
+      <div class="concept-box pur" style="margin-top:7px">
+        Since OPT covers all elements and must pay for each: <strong>|OPT| ≥ n/max_set_size</strong>. Combining: |greedy| ≤ H(n) · |OPT|. □
+      </div>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Inapproximability</div>
+      <div class="concept-box red">
+        <strong>Hardness result (Dinur &amp; Steurer, 2014):</strong> Unless P = NP, no polynomial algorithm can approximate Set Cover within (1−ε)·ln(n) for any ε &gt; 0.<br>
+        Greedy achieves H(n) ≈ ln(n)+1 — this is <em>essentially optimal</em> among poly-time algorithms!
+      </div>
+      <p style="margin-top:7px">This means greedy is not just a practical heuristic — it is <strong>theoretically optimal</strong> in terms of approximation ratio for a polynomial-time algorithm.</p>
+      <div class="concept-box grn" style="margin-top:7px"><strong>Weighted Set Cover</strong> (each set has a cost): same greedy idea, pick set with best cost-per-new-element ratio. Same H(n) approximation guarantee holds.</div>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Real-World Applications</div>
+      <div class="concept-box">
+        <strong>Network monitoring:</strong> place minimum sensors to observe all traffic flows.<br>
+        <strong>Facility location:</strong> open minimum warehouses to serve all customers.<br>
+        <strong>Bioinformatics:</strong> minimum set of DNA probes covering all target genes.
+      </div>
+      <div class="concept-box grn" style="margin-top:7px">
+        <strong>Compiler optimisation:</strong> minimum test suite covering all code branches (covering arrays).<br>
+        <strong>Advertisement:</strong> minimum ad slots covering the entire target audience.<br>
+        <strong>Set Cover ↔ Vertex Cover:</strong> SC generalises vertex cover; Hitting Set is the dual problem.
+      </div>
+    </div>
+
+    <div class="lec-card">
+      <div class="lec-card-title">Complexity &amp; Variants</div>
+      <div class="concept-box">
+        <strong>Greedy time:</strong> O(n · |S| · iterations) — each iteration scans all sets.<br>
+        With a max-heap: O(n · |S| · log|S|) — faster for large inputs.<br>
+        <strong>Space:</strong> O(n + |S|)
+      </div>
+      <div class="concept-box grn" style="margin-top:7px">
+        <strong>k-Set Cover:</strong> each set has ≤ k elements → (1 − 1/e) approximation via LP rounding.<br>
+        <strong>Online Set Cover:</strong> elements revealed one at a time — greedy still works but ratio degrades to O(log n · log|S|).<br>
+        <strong>Partial Cover:</strong> cover at least p fraction of U — greedy adapted with same guarantee.
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOOL BODY -->
+<div class="tool-body">
+<div class="left-panel">
+
+  <!-- Input -->
+  <div class="section">
+    <div class="section-header">Set Definitions — one set per line, comma-separated element IDs</div>
+    <div class="section-body">
+      <label>Sets (universe = union of all elements)</label>
+      <textarea id="setInput" rows="6">0,1,2
+1,2,3
+2,3,4
+0,4</textarea>
+      <div class="presets" style="margin-top:8px">
+        <span style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);align-self:center;">Presets:</span>
+        <button class="preset-btn active" onclick="loadPreset(0)">Tutorial (5 elems)</button>
+        <button class="preset-btn" onclick="loadPreset(1)">Network (7 elems)</button>
+        <button class="preset-btn" onclick="loadPreset(2)">Dense Overlap</button>
+        <button class="preset-btn" onclick="loadPreset(3)">Cascading (8 elems)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="section">
+    <div class="section-header">Playback Controls</div>
+    <div class="section-body">
+      <div class="speed-row">
+        <span class="speed-label-txt">Speed</span>
+        <input type="range" id="speedSlider" min="0.25" max="4" step="0.25" value="1" oninput="updateSpeed(this.value)">
+        <span class="speed-val" id="speedVal">1.0×</span>
+      </div>
+      <div class="ctrl-row">
+        <button class="ctrl-btn primary" onclick="buildStepsRun()">▶ Build Steps</button>
+        <button class="ctrl-btn" id="btnStep" onclick="stepOnce()" disabled>Step →</button>
+        <button class="ctrl-btn" id="btnPlay" onclick="playAnim()" disabled>Play</button>
+        <button class="ctrl-btn" id="btnPause" onclick="pauseAnim()" disabled>Pause</button>
+        <button class="ctrl-btn" onclick="resetTool()">Reset</button>
+      </div>
+      <div class="status-row">
+        <span class="badge badge-idle" id="statusBadge">Idle</span>
+        <span class="step-counter" id="stepCounter">Step 0 / 0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pseudocode -->
+  <div class="section">
+    <div class="section-header">Pseudocode — Hover lines for explanation</div>
+    <div class="section-body" style="padding:8px;">
+      <div class="pseudocode" id="pseudocode"></div>
+    </div>
+  </div>
+
+  <!-- Step Explanation -->
+  <div class="section">
+    <div class="section-header">Step Explanation</div>
+    <div class="section-body">
+      <div class="explanation" id="stepExplain">Select a preset and press <strong>Build Steps</strong> to begin.</div>
+      <div class="key-insight" id="keyInsight"><div class="ki-label">💡 Key Insight</div><div id="keyInsightText"></div></div>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="section">
+    <div class="section-header grn">Live Statistics</div>
+    <div class="section-body">
+      <div class="stats-grid">
+        <div class="stat-box"><span class="stat-val" id="statCover">0</span><span class="stat-lbl">Cover Size</span></div>
+        <div class="stat-box"><span class="stat-val" id="statCovered">0</span><span class="stat-lbl">Covered</span></div>
+        <div class="stat-box"><span class="stat-val" id="statRemaining">0</span><span class="stat-lbl">Remaining</span></div>
+        <div class="stat-box"><span class="stat-val" id="statGain">—</span><span class="stat-lbl">Best Gain</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="section">
+    <div class="section-header">Step History — Click to jump</div>
+    <div class="section-body" style="padding:6px;">
+      <div class="history-wrap">
+        <table class="history-table">
+          <thead><tr><th>#</th><th>Phase</th><th>Info</th><th>Covered</th></tr></thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end left-panel -->
+
+<!-- RIGHT PANEL -->
+<div class="right-panel">
+  <div class="viz-header">
+    <span class="viz-title" id="vizTitle">Greedy Set Cover Visualization</span>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#10d9a0"></div>Covered / In Cover</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f0504a"></div>Uncovered</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f6b93b"></div>Best selected</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#8b5cf6"></div>Gain shown</div>
+    </div>
+  </div>
+  <div class="viz-area">
+    <svg class="canvas" id="mainSvg">
+      <g id="svgLayer"></g>
+    </svg>
+    <div class="viz-placeholder" id="placeholder">
+      <div class="ph-icon">📦</div>
+      <div class="ph-text">Load a preset and press Build Steps<br>to animate the greedy set cover algorithm</div>
+    </div>
+  </div>
+  <div class="cover-strip">
+    <span style="font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);">Cover:</span>
+    <span id="coverDisplay" style="color:var(--txt3);">—</span>
+  </div>
+</div>
+</div><!-- end tool-body -->
+
+<script>
+/* ================================================================
+   PSEUDOCODE
+   ================================================================ */
+const PSEUDO = [
+  { code:'GREEDY-SET-COVER(U, S):', tip:'Entry point — U = universe, S = collection of subsets' },
+  { code:'  covered ← ∅', tip:'Start with nothing covered' },
+  { code:'  cover ← []', tip:'Output cover starts empty' },
+  { code:'  while covered ≠ U:', tip:'Keep going until every element is covered' },
+  { code:'    for each s in S:', tip:'Evaluate every candidate set' },
+  { code:'      gain(s) ← |s \\ covered|', tip:'Gain = how many NEW elements s would add' },
+  { code:'    s* ← argmax { gain(s) }', tip:'Pick the set with maximum gain (greedy choice)' },
+  { code:'    cover.append(s*)', tip:'Add best set to the cover' },
+  { code:'    covered ← covered ∪ s*', tip:'Mark its elements as covered' },
+  { code:'  return cover  — ≤ H(|U|)·|OPT|', tip:'Result: greedy cover with H(n) approximation guarantee' },
+];
+
+function buildPseudo() {
+  const box = document.getElementById('pseudocode');
+  box.innerHTML = '';
+  PSEUDO.forEach((row, i) => {
+    const line = document.createElement('div');
+    line.className = 'pc-line';
+    line.id = `pc${i}`;
+    if (row.tip) line.setAttribute('data-tip', row.tip);
+    line.innerHTML = `<span class="pc-num">${i}</span><span class="pc-code">${row.code}</span>`;
+    box.appendChild(line);
+  });
+}
+
+function hlLine(n) {
+  document.querySelectorAll('.pc-line').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(`pc${n}`);
+  if (!el) return;
+  el.classList.add('active');
+  const box = el.closest('.pseudocode');
+  if (box) {
+    const lt = el.offsetTop, lb = lt + el.offsetHeight;
+    const bt = box.scrollTop, bb = bt + box.clientHeight;
+    if (lt < bt) box.scrollTop = lt - 4;
+    else if (lb > bb) box.scrollTop = lb - box.clientHeight + 4;
+  }
+}
+
+/* ================================================================
+   PRESETS
+   ================================================================ */
+const PRESETS = [
+  { name:'Tutorial (5 elems)', sets:'0,1,2\n1,2,3\n2,3,4\n0,4' },
+  { name:'Network (7 elems)',   sets:'0,1,2\n1,2,3\n3,4,5\n4,5,6\n0,6' },
+  { name:'Dense Overlap',       sets:'0,1,2,3\n2,3,4,5\n4,5,6,7\n0,3,5,7\n1,4,6' },
+  { name:'Cascading (8 elems)', sets:'0,1,2,3,4\n0,1,5,6\n2,3,5,7\n4,6,7' },
+];
+
+function loadPreset(i) {
+  document.getElementById('setInput').value = PRESETS[i].sets;
+  document.querySelectorAll('.preset-btn').forEach((b,j) => b.classList.toggle('active', i===j));
+  resetTool();
+}
+
+/* ================================================================
+   PARSING
+   ================================================================ */
+function parseSets(str) {
+  const lines = str.split(/\n/).map(s => s.trim()).filter(Boolean);
+  const sets = lines.map((line, i) => {
+    const elems = [...new Set(line.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)))];
+    return { name:`S${i}`, elems };
+  }).filter(s => s.elems.length > 0);
+  const universe = [...new Set(sets.flatMap(s => s.elems))].sort((a,b) => a-b);
+  return { sets, universe };
+}
+
+/* ================================================================
+   ALGORITHM HELPERS
+   ================================================================ */
+function harmonic(n) {
+  let h = 0; for (let i = 1; i <= n; i++) h += 1/i; return h;
+}
+
+/* ================================================================
+   STEP BUILDER
+   ================================================================ */
+function buildStepsData(sets, universe) {
+  const n = universe.length, m = sets.length;
+  const res = [];
+
+  const base = { sets, universe, covered:[], selected:[], gains:[], best:-1 };
+
+  // Input step
+  res.push({ phase:'Input', pcLine:0,
+    st:{...base},
+    expl:`Universe U = {${universe.map(e=>`e${e}`).join(', ')}}  →  n = ${n} elements\n→ ${m} candidate sets provided:\n${sets.map((s,i)=>`→ ${s.name} = {${s.elems.map(e=>`e${e}`).join(', ')}}`).join('\n')}\n→ Goal: minimum number of sets whose union = U\n→ Strategy: greedy — always pick the set covering the MOST uncovered elements\n→ Approximation guarantee: result ≤ H(${n}) · |OPT| ≈ ${harmonic(n).toFixed(2)} × optimal`,
+    coverSize:0, coveredCount:0, remaining:n, bestGain:'—' });
+
+  const covered = new Set();
+  const selected = [];
+  let iter = 0;
+
+  while (covered.size < n) {
+    iter++;
+    const uncovered = universe.filter(e => !covered.has(e));
+
+    // Compute gains for all sets
+    const gains = sets.map((s,i) => ({
+      idx:i, gain: s.elems.filter(e => !covered.has(e)).length,
+      newElems: s.elems.filter(e => !covered.has(e))
+    }));
+
+    const bestGain = Math.max(...gains.map(g => g.gain));
+    const bestIdx = gains.find(g => g.gain === bestGain).idx;
+
+    // Evaluate step
+    res.push({ phase:`Iter ${iter} — Evaluate`, pcLine:3,
+      st:{...base, covered:[...covered], selected:[...selected], gains:gains.map(g=>g.gain), best:-1},
+      expl:`Iteration ${iter}: ${uncovered.length} element${uncovered.length!==1?'s':''} still uncovered.\n→ Uncovered: {${uncovered.map(e=>`e${e}`).join(', ')}}\n→ Computing gain for each set (gain = |s \\ covered|):\n${gains.map(g=>`→ ${sets[g.idx].name}: gain = ${g.gain}  →  new: {${g.newElems.map(e=>`e${e}`).join(', ')||'∅'}}`).join('\n')}\n→ Maximum gain = ${bestGain}  (${sets[bestIdx].name})`,
+      coverSize:selected.length, coveredCount:covered.size, remaining:uncovered.length, bestGain,
+      ki:`Greedy rule: always pick the set with maximum gain. If OPT uses k sets, then at least one of those k sets covers ≥ 1/k of the remaining elements — so our best available gain ≥ |remaining|/k. This is the key inequality that drives the H(n) proof.` });
+
+    // Select step
+    selected.push(bestIdx);
+    sets[bestIdx].elems.forEach(e => covered.add(e));
+
+    res.push({ phase:`Select ${sets[bestIdx].name}`, pcLine:6,
+      st:{...base, covered:[...covered], selected:[...selected], gains:gains.map(g=>g.gain), best:bestIdx},
+      expl:`Best set: ${sets[bestIdx].name} — gain = ${bestGain}\n→ ${sets[bestIdx].name} = {${sets[bestIdx].elems.map(e=>`e${e}`).join(', ')}}\n→ Newly covered: {${gains[bestIdx].newElems.map(e=>`e${e}`).join(', ')}}\n→ cover ← cover ∪ {${sets[bestIdx].name}}\n→ covered ← covered ∪ {${gains[bestIdx].newElems.map(e=>`e${e}`).join(', ')}}\n→ Cover so far: {${selected.map(i=>sets[i].name).join(', ')}}\n→ Elements covered: ${covered.size} / ${n}  (${Math.round(covered.size/n*100)}%)`,
+      coverSize:selected.length, coveredCount:covered.size, remaining:n-covered.size, bestGain,
+      ki:`Adding ${sets[bestIdx].name} to the cover. Each selected set costs 1 unit. By choosing maximum gain each time, we minimise iterations while maximising coverage progress — the greedy "bang for buck" principle.` });
+  }
+
+  // Done
+  res.push({ phase:'Done ✓', pcLine:9,
+    st:{...base, covered:[...covered], selected:[...selected], gains:[], best:-1, done:true},
+    expl:`Greedy Set Cover complete! ✓\n→ Cover: {${selected.map(i=>sets[i].name).join(', ')}}\n→ Cover size: ${selected.length} set${selected.length!==1?'s':''}\n→ All ${n} elements covered ✓\n→ Approximation bound: |cover| ≤ H(${n}) · |OPT|\n→ H(${n}) = ${Array.from({length:n},(_,i)=>`1/${i+1}`).join('+')} ≈ ${harmonic(n).toFixed(4)}\n→ Guarantee: our solution is at most ${harmonic(n).toFixed(2)}× the optimal (unknown exact OPT)\n→ This ratio is essentially tight — no poly-time algo can do better unless P=NP`,
+    coverSize:selected.length, coveredCount:n, remaining:0, bestGain:'—', done:true,
+    ki:`The greedy approximation ratio H(n) ≈ ln(n)+1 is the best possible for a polynomial-time algorithm (Dinur & Steurer, 2014). Even with more sophisticated techniques — LP relaxation, semidefinite programming — no polynomial algorithm beats (1−ε)·ln(n).` });
+
+  return res;
+}
+
+/* ================================================================
+   STEP ENGINE
+   ================================================================ */
+let steps = [], curIdx = -1, playing = false, timer = null, speed = 1.0;
+let stSets = [], stUniverse = [];
+
+function buildStepsRun() {
+  const { sets, universe } = parseSets(document.getElementById('setInput').value);
+  if (sets.length < 2) { alert('Need at least 2 sets.'); return; }
+  if (universe.length < 2) { alert('Need at least 2 elements in the universe.'); return; }
+
+  // Check if all elements can be covered
+  const allElemsInSets = new Set(sets.flatMap(s => s.elems));
+  if (universe.some(e => !allElemsInSets.has(e))) { alert('Some elements are not in any set — no solution exists.'); return; }
+
+  resetTool(false);
+  stSets = sets.map(s => ({...s, elems:[...s.elems]}));
+  stUniverse = [...universe];
+
+  steps = buildStepsData(stSets, stUniverse);
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('statRemaining').textContent = universe.length;
+  rebuildHistory(-1);
+  setStatus('ready');
+  document.getElementById('btnStep').disabled = false;
+  document.getElementById('btnPlay').disabled = false;
+  curIdx = -1;
+  setCounter(0, steps.length);
+  draw(-1);
+}
+
+function applyStep(i) {
+  if (i < 0 || i >= steps.length) return;
+  const s = steps[i];
+  setCounter(i+1, steps.length);
+
+  const exEl = document.getElementById('stepExplain');
+  exEl.innerHTML = (s.expl || '').replace(/\n/g, '<br>');
+  exEl.classList.remove('flash');
+  void exEl.offsetWidth;
+  exEl.classList.add('flash');
+
+  const kiEl = document.getElementById('keyInsight');
+  if (s.ki) {
+    document.getElementById('keyInsightText').innerHTML = s.ki.replace(/\n/g, '<br>');
+    kiEl.classList.add('visible');
+  } else { kiEl.classList.remove('visible'); }
+
+  hlLine(s.pcLine);
+  draw(i);
+
+  document.getElementById('statCover').textContent = s.coverSize ?? 0;
+  document.getElementById('statCovered').textContent = s.coveredCount ?? 0;
+  document.getElementById('statRemaining').textContent = s.remaining ?? 0;
+  document.getElementById('statGain').textContent = s.bestGain !== undefined ? s.bestGain : '—';
+
+  if (s.done) {
+    const cover = (s.st.selected || []).map(idx => stSets[idx].name).join(' → ');
+    document.getElementById('coverDisplay').innerHTML = `<span style="color:var(--grn)">${cover}</span>`;
+    setStatus('done');
+    playing = false;
+    document.getElementById('btnPlay').disabled = true;
+    document.getElementById('btnStep').disabled = true;
+  } else if (!playing) setStatus('paused');
+
+  document.querySelectorAll('#historyBody tr').forEach((r,j) => r.classList.toggle('current', j===i));
+  const row = document.querySelector(`#historyBody tr:nth-child(${i+1})`);
+  if (row) {
+    const wrap = document.querySelector('.history-wrap');
+    if (wrap) wrap.scrollTop = row.offsetTop - wrap.clientHeight/2;
+  }
+}
+
+function stepOnce() { if (curIdx+1 < steps.length) { curIdx++; applyStep(curIdx); } }
+
+function playAnim() {
+  if (playing || curIdx+1 >= steps.length) return;
+  playing = true; setStatus('playing');
+  document.getElementById('btnPause').disabled = false;
+  function tick() {
+    if (!playing || curIdx+1 >= steps.length) { playing = false; return; }
+    curIdx++; applyStep(curIdx);
+    timer = setTimeout(tick, 900 / parseFloat(document.getElementById('speedSlider').value));
+  }
+  tick();
+}
+
+function pauseAnim() {
+  playing = false; clearTimeout(timer);
+  document.getElementById('btnPause').disabled = true;
+  if (curIdx < steps.length-1) setStatus('paused');
+}
+
+function resetTool(full=true) {
+  playing = false; clearTimeout(timer); curIdx = -1; steps = [];
+  setStatus('idle'); setCounter(0,0);
+  document.getElementById('stepExplain').innerHTML = 'Select a preset and press <strong>Build Steps</strong> to begin.';
+  document.getElementById('keyInsight').classList.remove('visible');
+  document.getElementById('btnStep').disabled = true;
+  document.getElementById('btnPlay').disabled = true;
+  document.getElementById('btnPause').disabled = true;
+  document.getElementById('historyBody').innerHTML = '';
+  document.getElementById('statCover').textContent = '0';
+  document.getElementById('statCovered').textContent = '0';
+  document.getElementById('statRemaining').textContent = '0';
+  document.getElementById('statGain').textContent = '—';
+  document.getElementById('coverDisplay').textContent = '—';
+  document.querySelectorAll('.pc-line').forEach(el => el.classList.remove('active'));
+  document.getElementById('svgLayer').innerHTML = '';
+  if (full) { document.getElementById('placeholder').style.display = 'flex'; stSets = []; stUniverse = []; }
+  drawIdle();
+}
+
+function jumpTo(i) { pauseAnim(); curIdx = i; rebuildHistory(i); applyStep(i); setStatus('paused'); }
+
+function rebuildHistory(cur) {
+  const body = document.getElementById('historyBody');
+  body.innerHTML = '';
+  steps.forEach((s, i) => {
+    const tr = document.createElement('tr');
+    if (i === cur) tr.classList.add('current');
+    tr.style.cursor = 'pointer';
+    tr.addEventListener('click', () => jumpTo(i));
+    ['#'+(i+1), s.phase, `gain=${s.bestGain}`, `${s.coveredCount??0}/${stUniverse.length}`].forEach(t => {
+      const td = document.createElement('td'); td.textContent = t; tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+
+function updateSpeed(v) {
+  speed = +v;
+  document.getElementById('speedVal').textContent = speed.toFixed(2).replace(/\.?0+$/,'') + '×';
+  if (timer) { pauseAnim(); playAnim(); }
+}
+
+function setStatus(s) {
+  const el = document.getElementById('statusBadge');
+  const map = { idle:'Idle', ready:'Ready', playing:'Playing', paused:'Paused', done:'Done' };
+  const cls = { idle:'badge-idle', ready:'badge-ready', playing:'badge-playing', paused:'badge-paused', done:'badge-done' };
+  el.textContent = map[s]||s; el.className = 'badge '+(cls[s]||'badge-idle');
+}
+function setCounter(cur, tot) { document.getElementById('stepCounter').textContent = `Step ${cur} / ${tot}`; }
+
+/* ================================================================
+   SVG DRAWING
+   ================================================================ */
+function svgEl(tag, attr) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attr) el.setAttribute(k, attr[k]);
+  return el;
+}
+function svgTxt(content, attr) {
+  const el = svgEl('text', attr); el.textContent = content; return el;
+}
+function clearSvg() { document.getElementById('svgLayer').innerHTML = ''; }
+
+function drawIdle() {
+  clearSvg();
+  const svg = document.getElementById('mainSvg');
+  const W = svg.clientWidth||800, H = svg.clientHeight||500;
+  document.getElementById('svgLayer').appendChild(svgTxt('Build Steps to see the greedy cover animate', {
+    x:W/2, y:H/2, 'text-anchor':'middle', 'font-size':'13',
+    'font-family':'Inter,system-ui', fill:'#2a3d5a'
+  }));
+}
+
+function draw(stepIdx) {
+  clearSvg();
+  const svg = document.getElementById('mainSvg');
+  const W = svg.clientWidth||800, H = svg.clientHeight||500;
+  const g = document.getElementById('svgLayer');
+
+  let st;
+  if (stepIdx < 0 && stSets.length > 0) {
+    st = { sets:stSets, universe:stUniverse, covered:[], selected:[], gains:[], best:-1 };
+  } else if (stepIdx >= 0 && steps[stepIdx]) {
+    st = steps[stepIdx].st;
+  } else { drawIdle(); return; }
+
+  const { sets, universe } = st;
+  const n = universe.length, m = sets.length;
+  const covSet = new Set(st.covered || []);
+  const selSet = new Set(st.selected || []);
+  const gains = st.gains || [];
+  const hasGains = gains.length > 0;
+  const maxGain = hasGains ? Math.max(...gains) : -1;
+
+  const PAD = 36, RPAD = 190;
+  const plotW = W - PAD - RPAD;
+  const plotH = H - 2*PAD;
+
+  // Column positions
+  const setColX = PAD + 10;
+  const setBoxW = Math.min(130, plotW * 0.38);
+  const elemColX = PAD + setBoxW + (plotW - setBoxW) * 0.52;
+  const midX = setColX + setBoxW + (elemColX - setColX - setBoxW) / 2;
+
+  // Vertical spacing
+  const setSpY = Math.min(58, (plotH - 10) / Math.max(m, 1));
+  const elemSpY = Math.min(48, (plotH - 10) / Math.max(n, 1));
+  const setY = i => PAD + 16 + i * setSpY + setSpY / 2;
+  const elemY = j => PAD + 16 + j * elemSpY + elemSpY / 2;
+
+  // SET COLORS
+  function setColors(si) {
+    const isSelected = selSet.has(si);
+    const isBest = st.best === si;
+    const gain = gains[si] ?? -1;
+    if (isSelected) return { fill:'rgba(16,217,160,.14)', stroke:'#10d9a0', txt:'#10d9a0', sw:2.5 };
+    if (isBest)     return { fill:'rgba(246,185,59,.14)', stroke:'#f6b93b', txt:'#f6b93b', sw:2.5 };
+    if (hasGains && gain > 0) return { fill:'rgba(139,92,246,.08)', stroke:'#8b5cf6', txt:'#8b5cf6', sw:1.5 };
+    if (hasGains && gain === 0) return { fill:'rgba(25,35,64,.5)', stroke:'#1f2e50', txt:'#253d5a', sw:1 };
+    return { fill:'rgba(61,169,252,.06)', stroke:'#2a4a6a', txt:'#3da9fc', sw:1 };
+  }
+
+  // Draw lines (behind everything)
+  sets.forEach((s, si) => {
+    const isSelected = selSet.has(si);
+    const isBest = st.best === si;
+    s.elems.forEach(e => {
+      const ej = universe.indexOf(e);
+      if (ej < 0) return;
+      const stroke = isSelected ? '#10d9a0' : isBest ? '#f6b93b' : 'rgba(61,169,252,.14)';
+      g.appendChild(svgEl('line', {
+        x1: setColX + setBoxW, y1: setY(si),
+        x2: elemColX - 16, y2: elemY(ej),
+        stroke, 'stroke-width': isSelected ? 2 : isBest ? 2 : 1,
+        'stroke-dasharray': isSelected ? 'none' : '4,3', opacity: isSelected ? 0.9 : 0.6
+      }));
+    });
+  });
+
+  // Draw sets
+  sets.forEach((s, si) => {
+    const c = setColors(si);
+    const sy = setY(si);
+    const bh = Math.min(setSpY - 5, 46);
+    const gain = gains[si] ?? -1;
+
+    g.appendChild(svgEl('rect', { x:setColX, y:sy-bh/2, width:setBoxW, height:bh, rx:6, fill:c.fill, stroke:c.stroke, 'stroke-width':c.sw }));
+
+    // Set name
+    g.appendChild(svgTxt(s.name, { x:setColX+8, y:sy-3, 'font-size':'11', fill:c.txt, 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+
+    // Elements in set
+    const elemStr = `{${s.elems.map(e=>`e${e}`).join(',')}}`;
+    g.appendChild(svgTxt(elemStr, { x:setColX+8, y:sy+9, 'font-size':'8', fill:c.sw>1?c.txt:'#2a4060', 'font-family':'IBM Plex Mono,monospace' }));
+
+    // Gain badge
+    if (hasGains && gain >= 0) {
+      const bColor = gain === maxGain && maxGain > 0 ? '#f6b93b' : gain > 0 ? '#8b5cf6' : '#253d5a';
+      const bgColor = gain === maxGain && maxGain > 0 ? 'rgba(246,185,59,.2)' : gain > 0 ? 'rgba(139,92,246,.15)' : 'rgba(10,15,28,.6)';
+      g.appendChild(svgEl('rect', { x:setColX+setBoxW-30, y:sy-bh/2+3, width:27, height:16, rx:4, fill:bgColor, stroke:bColor, 'stroke-width':'1' }));
+      g.appendChild(svgTxt(`+${gain}`, { x:setColX+setBoxW-16, y:sy-bh/2+14, 'text-anchor':'middle', 'font-size':'9.5', fill:bColor, 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+    }
+
+    // Status labels to the right of the box
+    if (selSet.has(si)) {
+      g.appendChild(svgTxt('✓ IN COVER', { x:setColX+setBoxW+5, y:sy+3, 'font-size':'7.5', fill:'#10d9a0', 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+    } else if (st.best === si) {
+      g.appendChild(svgTxt('◀ SELECTED', { x:setColX+setBoxW+5, y:sy+3, 'font-size':'7.5', fill:'#f6b93b', 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+    }
+  });
+
+  // Column headers
+  g.appendChild(svgTxt('SETS', { x:setColX+setBoxW/2, y:PAD+3, 'text-anchor':'middle', 'font-size':'9', fill:'#3da9fc', 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+  g.appendChild(svgTxt('ELEMENTS', { x:elemColX, y:PAD+3, 'text-anchor':'middle', 'font-size':'9', fill:'#3da9fc', 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+
+  // Draw elements
+  universe.forEach((e, ej) => {
+    const isCovered = covSet.has(e);
+    const ey = elemY(ej);
+    const r = 14;
+    const fill = isCovered ? 'rgba(16,217,160,.2)' : 'rgba(240,80,74,.15)';
+    const stroke = isCovered ? '#10d9a0' : '#f0504a';
+
+    const circ = svgEl('circle', { cx:elemColX, cy:ey, r, fill, stroke, 'stroke-width':'2' });
+    circ.classList.add('viz-node');
+    if (!isCovered) circ.classList.add('anim-glow');
+    g.appendChild(circ);
+    g.appendChild(svgTxt(`e${e}`, { x:elemColX, y:ey+4, 'text-anchor':'middle', 'font-size':'10', fill:isCovered?'#10d9a0':'#f0504a', 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+  });
+
+  // RIGHT PANEL
+  const rpX = W - RPAD + 10, rpW = RPAD - 18;
+  g.appendChild(svgEl('rect', { x:W-RPAD+2, y:0, width:RPAD-2, height:H, fill:'rgba(10,15,28,.7)', stroke:'#1a2d4a', 'stroke-width':'1' }));
+  g.appendChild(svgTxt('COVER SO FAR', { x:rpX, y:20, 'font-size':'9', fill:'#3da9fc', 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+
+  const sel = st.selected || [];
+  if (sel.length === 0) {
+    g.appendChild(svgTxt('(none yet)', { x:rpX, y:40, 'font-size':'9', fill:'#2a3d5a', 'font-family':'IBM Plex Mono,monospace' }));
+  } else {
+    sel.forEach((si, ki) => {
+      const ry = 36 + ki * 22;
+      g.appendChild(svgEl('rect', { x:rpX, y:ry-12, width:rpW, height:18, rx:3, fill:'rgba(16,217,160,.1)', stroke:'#10d9a0', 'stroke-width':'1' }));
+      g.appendChild(svgTxt(`${sets[si].name} = {${sets[si].elems.map(e=>`e${e}`).join(',')}}`, { x:rpX+5, y:ry+2, 'font-size':'8', fill:'#10d9a0', 'font-family':'IBM Plex Mono,monospace' }));
+    });
+  }
+
+  // Coverage progress bar
+  const barTop = Math.min(36 + sel.length * 22 + 16, H - 110);
+  const barW = rpW;
+  const pct = n > 0 ? covSet.size / n : 0;
+  g.appendChild(svgTxt(`Coverage: ${covSet.size}/${n}`, { x:rpX, y:barTop, 'font-size':'8.5', fill:'#4a6080', 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+  g.appendChild(svgEl('rect', { x:rpX, y:barTop+6, width:barW, height:10, rx:3, fill:'rgba(20,30,55,.9)', stroke:'#1f2e50', 'stroke-width':'1' }));
+  if (pct > 0) g.appendChild(svgEl('rect', { x:rpX, y:barTop+6, width:barW*pct, height:10, rx:3, fill:'#10d9a0' }));
+  g.appendChild(svgTxt(`${Math.round(pct*100)}%`, { x:rpX+barW/2, y:barTop+15, 'text-anchor':'middle', 'font-size':'8', fill:pct>0.5?'#0b0f1a':'#10d9a0', 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+
+  // H(n) annotation
+  const hn = harmonic(n);
+  const anny = barTop + 30;
+  g.appendChild(svgTxt(`H(${n}) ≈ ${hn.toFixed(2)}`, { x:rpX, y:anny, 'font-size':'8.5', fill:'#8b5cf6', 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+  g.appendChild(svgTxt('approx bound', { x:rpX, y:anny+11, 'font-size':'7.5', fill:'#4a6080', 'font-family':'IBM Plex Mono,monospace' }));
+
+  // Legend
+  const legY = H - 72;
+  g.appendChild(svgTxt('LEGEND', { x:rpX, y:legY, 'font-size':'8', fill:'#4a6080', 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+  [['#10d9a0','Covered / In Cover'],['#f0504a','Uncovered'],['#f6b93b','Best (selected)'],['#8b5cf6','Has gain > 0']].forEach(([c,l],i) => {
+    g.appendChild(svgEl('circle', { cx:rpX+5, cy:legY+13+i*13, r:4, fill:c }));
+    g.appendChild(svgTxt(l, { x:rpX+14, y:legY+17+i*13, 'font-size':'7.5', fill:'#4a6080', 'font-family':'IBM Plex Mono,monospace' }));
+  });
+
+  // Phase banner
+  const phase = stepIdx >= 0 ? steps[stepIdx].phase : 'Input';
+  const phColor = phase.includes('Done') ? '#10d9a0' : phase.includes('Select') ? '#f6b93b' : '#3da9fc';
+  const banW = W - RPAD - PAD - 30;
+  g.appendChild(svgEl('rect', { x:PAD, y:4, width:banW, height:16, rx:3, fill:'rgba(0,0,0,.4)', stroke:phColor, 'stroke-width':'0.5' }));
+  g.appendChild(svgTxt('PHASE: '+phase, { x:PAD+banW/2, y:15, 'text-anchor':'middle', 'font-size':'10', fill:phColor, 'font-weight':'700', 'font-family':'IBM Plex Mono,monospace' }));
+}
+
+/* ================================================================
+   MISC
+   ================================================================ */
+function toggleLecture() { document.getElementById('lectureStrip').classList.toggle('open'); }
+
+/* ================================================================
+   INIT
+   ================================================================ */
+buildPseudo();
+drawIdle();
+</script>
+</body>
+</html>
