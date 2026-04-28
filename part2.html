@@ -1040,6 +1040,87 @@ function drawCRT(idx) {
     return;
   }
 
+  /* ---- Number line view (INPUT and RESULT phases) ---- */
+  if (d.step === 'input' || d.step === 'result') {
+    const M_num = d.M ? Number(d.M) : congs.reduce((a,e)=>a*e.m,1);
+    const dispMax = Math.min(M_num, 150);
+    const NL_L = 140, NL_R = 28;
+    const nlW = W - NL_L - NL_R;
+    const sc = nlW / dispMax;
+    const nlTop = topY + 14;
+    const nlGap = Math.min(80, Math.floor((H - nlTop - 80) / Math.max(k, 1)));
+    const NL_COLS = ['#3da9fc','#f6b93b','#8b5cf6','#f0803c','#10d9a0'];
+
+    text(W/2, nlTop - 10, 'Number Lines — solutions to each congruence form arithmetic progressions', {fill:'#8da3c4',fs:10,ta:'middle'});
+
+    congs.forEach((eq, i) => {
+      const ny = nlTop + i * nlGap;
+      const col = NL_COLS[i % NL_COLS.length];
+
+      // Left label
+      const lb = el('text', {x:NL_L-10, y:ny, fill:col, 'font-size':'9.5', 'text-anchor':'end',
+        'font-family':'IBM Plex Mono,monospace', 'dominant-baseline':'middle', 'font-weight':'700'});
+      lb.textContent = `x ≡ ${eq.a} (mod ${eq.m})`; ap(lb);
+
+      // Axis line
+      ap(el('line', {x1:NL_L, y1:ny, x2:NL_L+nlW, y2:ny, stroke:'#27395e', 'stroke-width':1.5}));
+      // Arrowhead
+      ap(el('polygon', {points:`${NL_L+nlW+10},${ny} ${NL_L+nlW},${ny-5} ${NL_L+nlW},${ny+5}`, fill:'#27395e'}));
+
+      // Tick marks + labels at every m_i interval
+      const maxTicks = Math.floor(dispMax / eq.m);
+      const labelEvery = maxTicks <= 15 ? 1 : maxTicks <= 30 ? 2 : 5;
+      for (let t = 0; t * eq.m <= dispMax; t++) {
+        const xp = NL_L + t * eq.m * sc;
+        ap(el('line', {x1:xp, y1:ny-4, x2:xp, y2:ny+4, stroke:'#4a6080', 'stroke-width':1}));
+        if (t % labelEvery === 0) {
+          const lbl = el('text', {x:xp, y:ny+16, fill:'#4a6080', 'font-size':'7.5',
+            'text-anchor':'middle', 'font-family':'IBM Plex Mono,monospace', 'dominant-baseline':'middle'});
+          lbl.textContent = (t * eq.m).toString(); ap(lbl);
+        }
+      }
+
+      // Solution dots: a_i, a_i+m_i, a_i+2*m_i, ...
+      for (let v = Number(eq.a); v <= dispMax; v += eq.m) {
+        const xp = NL_L + v * sc;
+        const isSol = d.solution != null && Number(d.solution) === v;
+        const circ = ap(el('circle', {cx:xp, cy:ny, r: isSol ? 8 : 5,
+          fill:col, opacity: isSol ? '1' : '0.7',
+          stroke: isSol ? '#ffffff' : 'none', 'stroke-width':'1.5'}));
+        if (isSol) circ.classList.add('anim-glow');
+      }
+    });
+
+    // Vertical solution line crossing all congruences
+    if (d.solution != null) {
+      const sol = Number(d.solution);
+      if (sol <= dispMax) {
+        const sx = NL_L + sol * sc;
+        ap(el('line', {x1:sx, y1:nlTop-18, x2:sx, y2:nlTop+(k-1)*nlGap+22,
+          stroke:'#10d9a0', 'stroke-width':2, 'stroke-dasharray':'5 3', opacity:'0.9'}));
+        const botY = nlTop + (k-1)*nlGap + 30;
+        const sb = rect(sx-34, botY, 68, 30, {rx:7, fill:'rgba(16,217,160,.14)', stroke:'#10d9a0', sw:2});
+        sb.classList.add('anim-glow');
+        const slbl = el('text', {x:sx, y:botY+15, fill:'#10d9a0', 'font-size':'13',
+          'text-anchor':'middle', 'font-family':'IBM Plex Mono,monospace',
+          'dominant-baseline':'middle', 'font-weight':'700'});
+        slbl.textContent = `x = ${sol}`; ap(slbl);
+        // Verification checks below
+        const vY = botY + 40;
+        text(W/2, vY, congs.map((e,i)=>`${sol} mod ${e.m} = ${sol%e.m} ${sol%e.m===e.a?'✓':'✗'}`).join('   '), {fill:'#8da3c4',fs:10,ta:'middle',mono:true,bold:true});
+        text(W/2, vY+18, `Unique solution in [0, ${M_num}) — next solution at x + M = ${sol + M_num}`, {fill:'#4a6080',fs:9,ta:'middle'});
+      }
+    }
+
+    // 0 and M labels on axis
+    const axY = nlTop + (k-1)*nlGap + 16;
+    const t0 = el('text',{x:NL_L,y:axY,fill:'#4a6080','font-size':'8','text-anchor':'middle','font-family':'IBM Plex Mono,monospace','dominant-baseline':'middle'}); t0.textContent='0'; ap(t0);
+    const tM = el('text',{x:NL_L+nlW,y:axY,fill:'#3da9fc','font-size':'8','text-anchor':'middle','font-family':'IBM Plex Mono,monospace','dominant-baseline':'middle','font-weight':'700'});
+    tM.textContent = M_num<=150 ? `M=${M_num}` : `${dispMax}…`; ap(tM);
+
+    return;
+  }
+
   /* ---- Main CRT construction view ---- */
   text(W/2, topY-10, 'CRT Construction — each column shows one congruence\'s contribution', {fill:'#8da3c4',fs:11,ta:'middle'});
 
