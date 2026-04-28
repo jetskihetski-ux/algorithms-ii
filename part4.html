@@ -103,7 +103,7 @@ input[type="range"]{flex:1;accent-color:var(--acc);}
 .key-insight.visible{display:block;}
 .ki-label{font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--grn);margin-bottom:5px;}
 
-.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;}
 .stat-box{background:var(--bg0);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 6px;text-align:center;}
 .stat-val{display:block;font-size:14px;font-weight:700;color:var(--acc);}
 .stat-lbl{display:block;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--txt3);margin-top:3px;font-family:'Inter',system-ui,sans-serif;}
@@ -335,7 +335,9 @@ svg.canvas{width:100%;height:100%;display:block;}
     <div class="section-header grn">Live Statistics</div>
     <div class="section-body">
       <div class="stats-grid">
-        <div class="stat-box"><span class="stat-val" id="statCover">0</span><span class="stat-lbl">Cover Size</span></div>
+        <div class="stat-box"><span class="stat-val" id="statCover">0</span><span class="stat-lbl">Greedy |C|</span></div>
+        <div class="stat-box"><span class="stat-val" id="statOPT" style="color:var(--grn)">—</span><span class="stat-lbl">OPT |C*|</span></div>
+        <div class="stat-box"><span class="stat-val" id="statBound" style="color:var(--ylw)">—</span><span class="stat-lbl">H(d)·OPT</span></div>
         <div class="stat-box"><span class="stat-val" id="statCovered">0</span><span class="stat-lbl">Covered</span></div>
         <div class="stat-box"><span class="stat-val" id="statRemaining">0</span><span class="stat-lbl">Remaining</span></div>
         <div class="stat-box"><span class="stat-val" id="statGain">—</span><span class="stat-lbl">Best Gain</span></div>
@@ -465,19 +467,39 @@ function harmonic(n) {
   let h = 0; for (let i = 1; i <= n; i++) h += 1/i; return h;
 }
 
+function computeOPT(sets, universe) {
+  const m = sets.length;
+  if (m > 20) return null;
+  const uArr = universe;
+  let best = m;
+  for (let mask = 1; mask < (1 << m); mask++) {
+    const bits = mask.toString(2).split('').filter(c => c === '1').length;
+    if (bits >= best) continue;
+    const covered = new Set();
+    for (let i = 0; i < m; i++) if (mask & (1 << i)) sets[i].elems.forEach(e => covered.add(e));
+    if (uArr.every(e => covered.has(e))) best = bits;
+  }
+  return best;
+}
+
 /* ================================================================
    STEP BUILDER
    ================================================================ */
-function buildStepsData(sets, universe) {
+function buildStepsData(sets, universe, opt=null, d=null) {
   const n = universe.length, m = sets.length;
+  if (d === null) d = Math.max(...sets.map(s => s.elems.length));
+  const hd = harmonic(d);
   const res = [];
 
   const base = { sets, universe, covered:[], selected:[], gains:[], best:-1 };
 
+  const optStr = opt !== null ? opt : '?';
+  const boundStr = opt !== null ? (hd * opt).toFixed(2) : '?';
+
   // Input step
   res.push({ phase:'Input', pcLine:0,
     st:{...base},
-    expl:`Universe U = {${universe.map(e=>`e${e}`).join(', ')}}  →  n = ${n} elements\n→ ${m} candidate sets provided:\n${sets.map((s,i)=>`→ ${s.name} = {${s.elems.map(e=>`e${e}`).join(', ')}}`).join('\n')}\n→ Goal: minimum number of sets whose union = U\n→ Strategy: greedy — always pick the set covering the MOST uncovered elements\n→ Approximation guarantee: result ≤ H(${n}) · |OPT| ≈ ${harmonic(n).toFixed(2)} × optimal`,
+    expl:`Universe U = {${universe.map(e=>`e${e}`).join(', ')}}  →  n = ${n} elements\n→ ${m} candidate sets provided:\n${sets.map((s,i)=>`→ ${s.name} = {${s.elems.map(e=>`e${e}`).join(', ')}}`).join('\n')}\n→ Goal: minimum number of sets whose union = U\n→ OPT = ${optStr} (brute-forced over all 2^${m} subsets)\n→ d = max|Sᵢ| = ${d}  →  approximation ratio ≤ H(${d}) ≈ ${hd.toFixed(2)}\n→ Guarantee: greedy ≤ H(${d}) · OPT = ${hd.toFixed(2)} × ${optStr} = ${boundStr}`,
     coverSize:0, coveredCount:0, remaining:n, bestGain:'—' });
 
   const covered = new Set();
@@ -516,11 +538,17 @@ function buildStepsData(sets, universe) {
   }
 
   // Done
+  const greedySize = selected.length;
+  const hdStr = hd.toFixed(3);
+  const ratioStr = opt !== null ? (greedySize / opt).toFixed(2) : '—';
+  const doneExpl = opt !== null
+    ? `Greedy Set Cover complete! ✓\n→ Cover: {${selected.map(i=>sets[i].name).join(', ')}}\n→ Greedy   |C|     = ${greedySize} sets\n→ Optimal  |C*|    = ${optStr} sets  (brute-forced over all 2^${m} = ${1<<m} subsets)\n→ Bound    H(d)·OPT = H(${d}) × ${optStr} = ${hd.toFixed(3)} × ${optStr} = ${boundStr}\n→ Actual ratio: ${greedySize} / ${optStr} = ${ratioStr}×  ≤  H(${d}) = ${hd.toFixed(3)} ✓\n→ d = max|Sᵢ| = ${d}  →  H(d) = ${Array.from({length:d},(_,i)=>`1/${i+1}`).join('+')} ≈ ${hdStr}`
+    : `Greedy Set Cover complete! ✓\n→ Cover: {${selected.map(i=>sets[i].name).join(', ')}}\n→ Greedy |C| = ${greedySize},  d = max|Sᵢ| = ${d}\n→ OPT: too many subsets to brute-force (2^${m} > 2^20)\n→ Guarantee: |C| ≤ H(${d}) · |OPT| ≈ ${hdStr} × OPT`;
   res.push({ phase:'Done ✓', pcLine:9,
     st:{...base, covered:[...covered], selected:[...selected], gains:[], best:-1, done:true},
-    expl:`Greedy Set Cover complete! ✓\n→ Cover: {${selected.map(i=>sets[i].name).join(', ')}}\n→ Cover size: ${selected.length} set${selected.length!==1?'s':''}\n→ All ${n} elements covered ✓\n→ Approximation bound: |cover| ≤ H(${n}) · |OPT|\n→ H(${n}) = ${Array.from({length:n},(_,i)=>`1/${i+1}`).join('+')} ≈ ${harmonic(n).toFixed(4)}\n→ Guarantee: our solution is at most ${harmonic(n).toFixed(2)}× the optimal (unknown exact OPT)\n→ This ratio is essentially tight — no poly-time algo can do better unless P=NP`,
-    coverSize:selected.length, coveredCount:n, remaining:0, bestGain:'—', done:true,
-    ki:`The greedy approximation ratio H(n) ≈ ln(n)+1 is the best possible for a polynomial-time algorithm (Dinur & Steurer, 2014). Even with more sophisticated techniques — LP relaxation, semidefinite programming — no polynomial algorithm beats (1−ε)·ln(n).` });
+    expl: doneExpl,
+    coverSize:greedySize, coveredCount:n, remaining:0, bestGain:'—', done:true,
+    ki:`CLRS 35.3 proves greedy ≤ H(d)·OPT where d = max|Sᵢ|. Here d=${d} → H(d)≈${hdStr}. The ratio is tight: for any ε>0, no polynomial algorithm achieves (1−ε)·ln(n)-approximation unless P=NP (Dinur & Steurer, 2014). Our greedy gave ${greedySize} vs OPT=${optStr} → actual ratio ${ratioStr}×.` });
 
   return res;
 }
@@ -544,7 +572,15 @@ function buildStepsRun() {
   stSets = sets.map(s => ({...s, elems:[...s.elems]}));
   stUniverse = [...universe];
 
-  steps = buildStepsData(stSets, stUniverse);
+  // Compute OPT by brute force (feasible for m ≤ 20)
+  const opt = computeOPT(stSets, stUniverse);
+  const d = Math.max(...stSets.map(s => s.elems.length));
+  const hd = harmonic(d);
+  const bound = opt !== null ? (hd * opt).toFixed(2) : '—';
+  document.getElementById('statOPT').textContent = opt !== null ? opt : '?';
+  document.getElementById('statBound').textContent = opt !== null ? bound : '?';
+
+  steps = buildStepsData(stSets, stUniverse, opt, d);
   document.getElementById('placeholder').style.display = 'none';
   document.getElementById('statRemaining').textContent = universe.length;
   rebuildHistory(-1);
@@ -628,6 +664,8 @@ function resetTool(full=true) {
   document.getElementById('btnPause').disabled = true;
   document.getElementById('historyBody').innerHTML = '';
   document.getElementById('statCover').textContent = '0';
+  document.getElementById('statOPT').textContent = '—';
+  document.getElementById('statBound').textContent = '—';
   document.getElementById('statCovered').textContent = '0';
   document.getElementById('statRemaining').textContent = '0';
   document.getElementById('statGain').textContent = '—';
