@@ -497,13 +497,13 @@ m   = CRT(m_p, m_q) mod n    <span class="cm">// recombine via CRT</span></div>
     </div>
     <div class="lec-card">
       <div class="lec-card-title">Why the Terms Isolate Equations</div>
-      <p>The brilliance of CRT: term <em>i</em> = aᵢ · Mᵢ · yᵢ satisfies two properties simultaneously:</p>
+      <p>Think of each term aᵢ·Mᵢ·yᵢ as a "switch" that is ON for equation i and OFF for every other equation:</p>
       <ul>
-        <li><strong>termᵢ ≡ aᵢ (mod mᵢ)</strong> because Mᵢ·yᵢ ≡ 1 (mod mᵢ)</li>
-        <li><strong>termᵢ ≡ 0 (mod mⱼ)</strong> for j ≠ i because mⱼ | Mᵢ</li>
+        <li><strong>Mod mᵢ:</strong> Mᵢ contains every modulus except mᵢ, so Mᵢ·yᵢ ≡ 1 (mod mᵢ) — the term equals aᵢ ✓</li>
+        <li><strong>Mod mⱼ (j ≠ i):</strong> Mᵢ is divisible by mⱼ, so the whole term ≡ 0 — it disappears ✓</li>
       </ul>
       <div class="concept-box pur">
-        Summing all terms, mod mᵢ collapses every term except term i, leaving exactly aᵢ. This is the <strong>direct sum decomposition</strong> Z/MZ ≅ Z/m₁Z × … × Z/mₖZ.
+        When you add all terms together and take mod mᵢ, every term except the i-th vanishes. Only term i survives, giving exactly aᵢ. That's why the single formula satisfies all equations at once.
       </div>
     </div>
     <div class="lec-card">
@@ -533,14 +533,12 @@ m = m_q + h · q<br>
 
     <div class="lec-card">
       <div class="lec-card-title">Correctness &amp; Uniqueness Proof</div>
-      <p>Why does the CRT formula always produce the correct, unique answer?</p>
+      <p>Why does the CRT formula always give the right answer, and why is there only one?</p>
       <div class="concept-box">
-        <strong>Existence:</strong> The constructed x satisfies each congruence by design — term i contributes aᵢ to equation i and 0 to all others.<br>
-        <strong>Uniqueness:</strong> If x and y both satisfy all congruences, then mᵢ | (x−y) for all i. Since moduli are pairwise coprime, M = ∏mᵢ also divides (x−y). So x ≡ y (mod M) — only one solution in [0, M).
+        <strong>It works (existence):</strong> We built x so that each equation is satisfied by design — the i-th term handles equation i, and every other term is 0 mod mᵢ. So x automatically passes all checks.
       </div>
       <div class="concept-box grn" style="margin-top:7px">
-        <strong>Ring isomorphism:</strong> CRT says ℤ/Mℤ ≅ ℤ/m₁ℤ × ℤ/m₂ℤ × … × ℤ/mₖℤ<br>
-        Solving the system = finding the preimage of (a₁, a₂, …, aₖ) under this isomorphism.
+        <strong>It's unique:</strong> Suppose two numbers x and y both satisfy all k congruences. Then x − y is divisible by every mᵢ. Because the moduli share no common factors, x − y must also be divisible by M = m₁·m₂·…·mₖ. So x and y are the same number in the range [0, M) — there is no second solution.
       </div>
     </div>
 
