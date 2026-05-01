@@ -33,7 +33,7 @@ code,.pseudocode,.pc-code,.pc-num,input[type="text"],input[type="number"],textar
 .part-link.active{color:var(--acc);background:rgba(61,169,252,.1);}
 
 .lecture-strip{background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;overflow:hidden;max-height:38px;transition:max-height .3s ease;}
-.lecture-strip.open{max-height:700px;overflow:auto;}
+.lecture-strip.open{max-height:9999px;overflow:auto;}
 .lecture-toggle{width:100%;background:none;border:none;padding:10px 20px;color:var(--txt2);cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;text-align:left;display:flex;align-items:center;gap:10px;}
 .lecture-toggle:hover{color:var(--acc);}
 .lecture-toggle-arrow{margin-left:auto;font-size:9px;transition:transform .2s;}
@@ -154,13 +154,40 @@ svg.canvas{width:100%;height:100%;display:block;}
 </header>
 
 <!-- LECTURE STRIP -->
-<div class="lecture-strip" id="lectureStrip">
+<div class="lecture-strip open" id="lectureStrip">
   <button class="lecture-toggle" onclick="toggleLecture()">
     <span>📦</span>
     <span>Lecture Notes — Greedy Set Cover Approximation (CLO-5)</span>
     <span class="lecture-toggle-arrow">▼</span>
   </button>
   <div class="lecture-grid">
+
+    <div class="lec-card" style="grid-column:1/-1">
+      <div class="lec-card-title">📖 Topic Overview — Greedy Set Cover Approximation (CLO-5)</div>
+      <p><strong>The Problem:</strong> You have a universe U of n elements and a collection of m subsets S₁, S₂, …, Sₘ where each Sᵢ ⊆ U. Find the smallest sub-collection of sets whose union equals U — cover every element using as few sets as possible.</p>
+      <div class="concept-box ylw" style="margin-top:10px">
+        <strong>Why is this hard?</strong> Set Cover is NP-hard — no polynomial-time exact algorithm is known (and none is believed to exist). Brute-force over all 2<sup>m</sup> subset collections is only feasible for small m. For large instances we need an <em>approximation algorithm</em>: one that runs in polynomial time and guarantees a solution within a provable factor of optimal.
+      </div>
+      <p style="margin-top:10px"><strong>The Greedy Algorithm:</strong></p>
+      <div class="lec-code">
+C ← ∅           <span class="cm">// selected cover (starts empty)</span>
+U' ← U           <span class="cm">// remaining uncovered elements</span>
+<span class="kw">while</span> U' ≠ ∅:
+    S* ← argmax |Sᵢ ∩ U'|   <span class="cm">// pick set covering most uncovered</span>
+    C  ← C ∪ {S*}
+    U' ← U' \ S*
+<span class="kw">return</span> C</div>
+      <p style="margin-top:10px"><strong>Approximation Ratio — H(d):</strong> Let d = max|Sᵢ| and H(k) = 1 + 1/2 + 1/3 + … + 1/k (harmonic number, ≈ ln k + 0.577). The greedy algorithm always produces a cover of size <strong>≤ H(d) · OPT</strong>. For d = 10, H(10) ≈ 2.93, meaning greedy uses at most about 3× as many sets as optimal.</p>
+      <div class="concept-box grn" style="margin-top:10px">
+        <strong>Proof sketch (CLRS Theorem 35.4):</strong> Let OPT = k*. After the greedy algorithm selects t sets, let nₜ = |uncovered elements|. Before step 1: n₀ = n elements remain; at least one set in OPT covers ≥ n₀/k* of them, so greedy picks a set of size ≥ n₀/k*, leaving n₁ ≤ n₀(1 − 1/k*). By induction after t steps: nₜ ≤ n·(1 − 1/k*)ᵗ ≤ n·e^(−t/k*). Setting nₜ &lt; 1 (i.e., everything covered) requires t &gt; k*·ln n. So greedy terminates in ≤ k*·ln n steps = OPT · H(n) ≤ OPT · H(d).
+      </div>
+      <p style="margin-top:10px"><strong>OPT Computation (Brute Force):</strong> For small instances we can verify the greedy gap exactly — enumerate all 2<sup>m</sup> − 1 non-empty subsets of sets, track the minimum number of sets that covers all of U. This runs in O(2<sup>m</sup> · n) time and is only feasible for m ≤ 20 or so, but it lets us see the exact ratio greedy/OPT on every example.</p>
+      <div class="concept-box pur" style="margin-top:10px">
+        <strong>Inapproximability:</strong> Dinur and Steurer (2014) proved that no polynomial-time algorithm can achieve ratio better than (1 − ε) · ln n for any ε &gt; 0 unless P = NP. Greedy achieves ln n ≈ H(n), so it is <em>essentially optimal among polynomial algorithms</em>.
+      </div>
+      <p style="margin-top:10px"><strong>Time Complexity:</strong> Each of the ≤ n greedy rounds scans all m sets and computes intersection sizes: O(n · m · n) naively, or O(n · m) with a coverage counter. Total: <strong>O(n² · m)</strong> naively or <strong>O(n · m)</strong> with careful bookkeeping.</p>
+      <p style="margin-top:6px"><em>Use the tool below to run greedy step-by-step on any universe and set collection — watch which set is chosen each round, see the remaining uncovered elements shrink, and compare the greedy solution size against OPT (computed by brute force) and the H(d)·OPT upper bound.</em></p>
+    </div>
 
     <div class="lec-card">
       <div class="lec-card-title">What is Set Cover?</div>

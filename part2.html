@@ -94,7 +94,7 @@ input[type="text"], input[type="number"], textarea,
   background: var(--bg1); border-bottom: 1px solid var(--border);
   flex-shrink: 0; max-height: 44px; overflow: hidden; transition: max-height .35s ease;
 }
-.lecture-strip.open { max-height: 700px; overflow: auto; }
+.lecture-strip.open { max-height: 9999px; overflow: auto; }
 .lecture-toggle {
   display: flex; align-items: center; gap: 10px; padding: 12px 20px;
   cursor: pointer; user-select: none; border: none; background: none; width: 100%;
@@ -414,12 +414,51 @@ svg.canvas { width: 100%; height: 100%; display: block; }
 </header>
 
 <!-- LECTURE STRIP -->
-<div class="lecture-strip" id="lectureStrip">
+<div class="lecture-strip open" id="lectureStrip">
   <button class="lecture-toggle" onclick="document.getElementById('lectureStrip').classList.toggle('open');this.querySelector('.lecture-toggle-arrow').style.transform=document.getElementById('lectureStrip').classList.contains('open')?'rotate(180deg)':''">
     &#9632; &nbsp; Lecture Notes — Chinese Remainder Theorem &amp; RSA-CRT (CLO-3)
     <span class="lecture-toggle-arrow">&#9660;</span>
   </button>
   <div class="lecture-grid">
+    <div class="lec-card" style="grid-column:1/-1">
+      <div class="lec-card-title">📖 Topic Overview — Chinese Remainder Theorem &amp; RSA-CRT (CLO-3)</div>
+      <p><strong>The Problem:</strong> Suppose you have several modular equations about the same unknown x — like a number that leaves remainder 2 when divided by 3, remainder 3 when divided by 5, and remainder 2 when divided by 7. Can you find x? The <em>Chinese Remainder Theorem</em> (CRT) says yes — and gives an efficient algorithm.</p>
+      <div class="concept-box ylw" style="margin-top:10px">
+        <strong>Formal statement:</strong> Given k congruences x ≡ a₁ (mod m₁), x ≡ a₂ (mod m₂), …, x ≡ aₖ (mod mₖ), where all moduli mᵢ are <em>pairwise coprime</em> (gcd(mᵢ, mⱼ) = 1 for i ≠ j), there exists a <em>unique solution</em> x modulo M = m₁ · m₂ · … · mₖ.
+      </div>
+      <p style="margin-top:10px"><strong>The Construction Algorithm:</strong></p>
+      <div class="lec-code">
+<span class="cm">// Step 1: compute the product of all moduli</span>
+M  = m₁ · m₂ · … · mₖ
+<span class="cm">// Step 2: for each congruence, compute the "partial product"</span>
+Mᵢ = M / mᵢ   <span class="cm">// everything except mᵢ</span>
+<span class="cm">// Step 3: find the modular inverse of Mᵢ mod mᵢ</span>
+yᵢ = Mᵢ⁻¹ mod mᵢ   <span class="cm">// via Extended Euclidean Algorithm</span>
+<span class="cm">// Step 4: combine</span>
+x  = (a₁·M₁·y₁ + a₂·M₂·y₂ + … + aₖ·Mₖ·yₖ) mod M</div>
+      <p><strong>Why does each term isolate its equation?</strong> The key insight: Mᵢ contains every modulus <em>except</em> mᵢ, so Mᵢ ≡ 0 (mod mⱼ) for all j ≠ i. This means every term except the i-th vanishes mod mᵢ. Multiplying by yᵢ (the inverse of Mᵢ) makes the i-th term equal exactly aᵢ mod mᵢ. The sum therefore satisfies all equations simultaneously.</p>
+      <div class="concept-box grn" style="margin-top:10px">
+        <strong>Worked example:</strong> x ≡ 2 (mod 3), x ≡ 3 (mod 5), x ≡ 2 (mod 7)<br>
+        M = 3·5·7 = 105 &nbsp;|&nbsp; M₁=35, M₂=21, M₃=15<br>
+        y₁ = 35⁻¹ mod 3 = 2 (since 35·2=70≡1 mod 3)<br>
+        y₂ = 21⁻¹ mod 5 = 1 (since 21·1=21≡1 mod 5)<br>
+        y₃ = 15⁻¹ mod 7 = 1 (since 15·1=15≡1 mod 7)<br>
+        x = (2·35·2 + 3·21·1 + 2·15·1) mod 105 = (140 + 63 + 30) mod 105 = 233 mod 105 = <strong>23</strong><br>
+        Verify: 23 mod 3=2 ✓ &nbsp; 23 mod 5=3 ✓ &nbsp; 23 mod 7=2 ✓
+      </div>
+      <p style="margin-top:10px"><strong>Extended Euclidean Algorithm — finding yᵢ:</strong> To compute Mᵢ⁻¹ mod mᵢ we need integers s, t such that s·Mᵢ + t·mᵢ = gcd(Mᵢ, mᵢ) = 1. Extended GCD finds s and t in O(log(min(a,b))) steps using back-substitution on the Euclidean remainder sequence. Then yᵢ = s mod mᵢ.</p>
+      <p style="margin-top:10px"><strong>RSA-CRT — the ×4 speedup:</strong> Standard RSA decryption computes m = c<sup>d</sup> mod n where n = p·q. This requires one modular exponentiation with a 2048-bit modulus. With CRT, we instead compute:</p>
+      <div class="lec-code">
+m_p = c<sup>d mod (p-1)</sup> mod p   <span class="cm">// 1024-bit exponent, 1024-bit modulus</span>
+m_q = c<sup>d mod (q-1)</sup> mod q   <span class="cm">// 1024-bit exponent, 1024-bit modulus</span>
+m   = CRT(m_p, m_q) mod n    <span class="cm">// recombine via CRT</span></div>
+      <p>Each half-size exponentiation is roughly 4× faster (exponent half as long, modular squarings involve half-size numbers). Total: <strong>~4× speedup</strong> with identical result guaranteed by CRT uniqueness. This is used in virtually every real TLS/RSA implementation.</p>
+      <div class="concept-box pur" style="margin-top:10px">
+        <strong>Garner's Algorithm</strong> — an alternative CRT reconstruction that avoids large intermediate products by working in a mixed-radix representation. Instead of computing Mᵢ·yᵢ over the full modulus, it builds the answer digit-by-digit using smaller residues. Numerically more stable for large k.
+      </div>
+      <p style="margin-top:10px"><strong>Time Complexity:</strong> Computing all k modular inverses via Extended GCD: O(k·log M). Evaluating the sum: O(k). Total: <strong>O(k log M)</strong> where M = ∏mᵢ. In practice for RSA-CRT with k=2: constant number of O(1024-bit) operations.</p>
+      <p style="margin-top:6px"><em>Use the tool below to step through any system of congruences — watch how the M, Mᵢ, yᵢ values are built, see the algebraic construction column by column, and view a number line showing which values each congruence accepts and where they intersect.</em></p>
+    </div>
     <div class="lec-card">
       <div class="lec-card-title">The Chinese Remainder Theorem</div>
       <p>Given <em>k</em> congruences x ≡ aᵢ (mod mᵢ) where the moduli mᵢ are <strong>pairwise coprime</strong> (gcd(mᵢ, mⱼ) = 1 for i ≠ j), CRT guarantees a <strong>unique solution</strong> mod M = m₁·m₂·…·mₖ.</p>

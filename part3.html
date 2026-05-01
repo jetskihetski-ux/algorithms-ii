@@ -33,7 +33,7 @@ code,.pseudocode,.pc-code,.pc-num,input[type="text"],input[type="number"],textar
 .part-link.active{color:var(--acc);background:rgba(61,169,252,.1);}
 
 .lecture-strip{background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;overflow:hidden;max-height:38px;transition:max-height .3s ease;}
-.lecture-strip.open{max-height:700px;overflow:auto;}
+.lecture-strip.open{max-height:9999px;overflow:auto;}
 .lecture-toggle{width:100%;background:none;border:none;padding:10px 20px;color:var(--txt2);cursor:pointer;font-family:'Inter',system-ui,sans-serif;font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;text-align:left;display:flex;align-items:center;gap:10px;}
 .lecture-toggle:hover{color:var(--acc);}
 .lecture-toggle-arrow{margin-left:auto;font-size:9px;transition:transform .2s;}
@@ -171,13 +171,52 @@ svg.canvas{width:100%;height:100%;display:block;}
   </nav>
 </header>
 
-<div class="lecture-strip" id="lectureStrip">
+<div class="lecture-strip open" id="lectureStrip">
   <button class="lecture-toggle" onclick="toggleLecture()">
     <span>📐</span>
     <span>Lecture Notes — Convex Hull Algorithms (CLO-4)</span>
     <span class="lecture-toggle-arrow">▼</span>
   </button>
   <div class="lecture-grid">
+
+    <div class="lec-card" style="grid-column:1/-1">
+      <div class="lec-card-title">📖 Topic Overview — Convex Hull Algorithms (CLO-4)</div>
+      <p><strong>The Problem:</strong> Given a set of n points in the plane, find the <em>convex hull</em> — the smallest convex polygon that contains every point. Imagine stretching a rubber band around all the points and letting it snap tight; the vertices of the resulting shape are the hull.</p>
+      <div class="concept-box ylw" style="margin-top:10px">
+        <strong>Formal definition:</strong> A set S is <em>convex</em> if for any two points p, q ∈ S the entire line segment pq lies in S. The convex hull conv(S) is the intersection of all convex sets containing S. In the plane it is a convex polygon whose vertices are a subset of the input points.
+      </div>
+      <p style="margin-top:10px"><strong>The Orientation Test — Cross Product:</strong> Almost every convex hull algorithm depends on a single primitive: given three points A, B, C (in that order), are they oriented counter-clockwise, clockwise, or collinear? Compute the 2D cross product:</p>
+      <div class="lec-code">
+cross(A, B, C) = (B.x - A.x)·(C.y - A.y) - (B.y - A.y)·(C.x - A.x)
+  &gt; 0  →  counter-clockwise (left turn)   <span class="cm">← keep on hull</span>
+  &lt; 0  →  clockwise (right turn)          <span class="cm">← pop from stack</span>
+  = 0  →  collinear</div>
+      <p style="margin-top:10px"><strong>Graham Scan — O(n log n):</strong></p>
+      <ol style="padding-left:18px;margin-top:6px">
+        <li style="font-size:11px;color:var(--txt2);line-height:1.75">Find the lowest point P₀ (anchor). Ties broken by leftmost x.</li>
+        <li style="font-size:11px;color:var(--txt2);line-height:1.75">Sort remaining points by polar angle relative to P₀ — O(n log n).</li>
+        <li style="font-size:11px;color:var(--txt2);line-height:1.75">Push P₀ and P₁ onto a stack. For each next point Pᵢ: while the top two stack points and Pᵢ form a clockwise or collinear turn, pop the stack. Then push Pᵢ.</li>
+        <li style="font-size:11px;color:var(--txt2);line-height:1.75">Stack contains the hull when done. Total: O(n log n) dominated by sort; each point is pushed and popped at most once → O(n) scan.</li>
+      </ol>
+      <div class="concept-box grn" style="margin-top:10px">
+        <strong>Jarvis March (Gift Wrapping) — O(nh):</strong> Start at the leftmost point. At each step, the next hull vertex is the point that makes the smallest counter-clockwise angle from the current direction. Repeat until you return to start. Each of the h hull steps costs O(n) comparisons → <strong>O(nh)</strong> total. When h = O(log n) this beats Graham Scan; when h = O(n) it degrades to O(n²).
+      </div>
+      <p style="margin-top:10px"><strong>Algorithm Comparison:</strong></p>
+      <div class="lec-code">
+              Graham Scan     Jarvis March
+Time:         O(n log n)      O(n·h)
+Extra space:  O(n) stack      O(h) hull list
+Best case:    Θ(n log n)      Θ(n)  (h=1, all on hull)
+Worst case:   Θ(n log n)      Θ(n²) (all points on hull, h=n)
+Stable?       Yes             Yes
+Preferred:    n large         h very small (sparse hull)</div>
+      <p style="margin-top:10px"><strong>Lower Bound — Ω(n log n):</strong> We can sort n numbers in O(n) time using a convex hull algorithm (map xᵢ → point (xᵢ, xᵢ²) on a parabola, which is always convex; hull vertices appear in sorted order). Since sorting requires Ω(n log n) comparisons, so does convex hull. Graham Scan achieves this bound — it is <strong>asymptotically optimal</strong>.</p>
+      <div class="concept-box pur" style="margin-top:10px">
+        <strong>Degenerate Cases:</strong> Three or more collinear points can appear anywhere on an edge of the hull. Graham Scan handles this by treating collinear triples as right-turns-to-pop (strict CCW only). Numerical precision: use exact integer arithmetic (cross product of integers) whenever possible to avoid floating-point orientation errors that can silently corrupt the hull.
+      </div>
+      <p style="margin-top:10px"><strong>Applications:</strong> Collision detection in games/physics engines, robot motion planning, smallest enclosing shape for GPS coordinates, computational geometry preprocessing step, image segmentation boundary detection, and solving linear programming feasibility geometrically.</p>
+      <p style="margin-top:6px"><em>Use the tool below to add points manually or pick a preset, then step through Graham Scan or Jarvis March to see exactly which orientation tests are computed and when points are added to or removed from the hull.</em></p>
+    </div>
 
     <div class="lec-card">
       <div class="lec-card-title">What is a Convex Hull?</div>

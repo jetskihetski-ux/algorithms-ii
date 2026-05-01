@@ -141,7 +141,7 @@ input[type="text"], input[type="number"], textarea,
   overflow: hidden;
   transition: max-height .35s ease;
 }
-.lecture-strip.open { max-height: 700px; overflow: auto; }
+.lecture-strip.open { max-height: 9999px; overflow: auto; }
 
 .lecture-toggle {
   display: flex;
@@ -527,13 +527,64 @@ svg.canvas { width: 100%; height: 100%; display: block; }
 <!-- ============================================================
      LECTURE STRIP  (collapsible)
      ============================================================ -->
-<div class="lecture-strip" id="lectureStrip">
+<div class="lecture-strip open" id="lectureStrip">
   <button class="lecture-toggle" onclick="toggleLecture()">
     <span>📖</span>
     <span>Lecture Notes — FFT &amp; Polynomial Multiplication (CLO-2)</span>
     <span class="lecture-toggle-arrow">▼</span>
   </button>
   <div class="lecture-grid">
+
+    <!-- ── INTRO CARD ── -->
+    <div class="lec-card" style="grid-column:1/-1">
+      <div class="lec-card-title">📖 Topic Overview — Fast Fourier Transform & Polynomial Multiplication (CLO-2)</div>
+      <p><strong style="color:var(--txt)">What is this topic?</strong> This tool covers the Fast Fourier Transform (FFT) algorithm and how it solves the polynomial multiplication problem in <strong style="color:var(--grn)">O(n log n)</strong> time — a dramatic improvement over the naïve O(n²) approach. The FFT is one of the most important algorithms in computer science and is used in signal processing, image compression, cryptography, and more.</p>
+
+      <div class="concept-box" style="margin-top:10px">
+        <strong>The Problem:</strong> Given two polynomials A(x) = a₀ + a₁x + a₂x² + … + aₙ₋₁xⁿ⁻¹ and B(x) = b₀ + b₁x + … + bₙ₋₁xⁿ⁻¹, compute their product C(x) = A(x) · B(x). The result has degree deg(A) + deg(B) and up to 2n−1 coefficients.
+      </div>
+
+      <p style="margin-top:8px"><strong style="color:var(--txt)">Why is the naïve approach too slow?</strong> The straightforward method multiplies every coefficient of A by every coefficient of B — that's n × n = n² multiplications. For small polynomials this is fine. But in practice, polynomials can have thousands of terms. For n = 10,000 terms, naïve needs 100 million multiplications. For n = 1,000,000 (common in signal processing), that's a trillion operations — completely infeasible in real time.</p>
+
+      <div class="concept-box ylw" style="margin-top:8px">
+        <strong>Key Insight — Evaluate, Multiply, Interpolate:</strong><br>
+        Instead of multiplying coefficients directly, we can:<br>
+        1. <strong>Evaluate</strong> both polynomials at n cleverly chosen points → O(n log n)<br>
+        2. <strong>Multiply</strong> the values at each point: C[k] = A[k] × B[k] → O(n)<br>
+        3. <strong>Interpolate</strong> back to get the coefficients of C → O(n log n)<br>
+        Total: O(n log n). The trick is choosing the right n points so steps 1 and 3 are fast.
+      </div>
+
+      <p style="margin-top:8px"><strong style="color:var(--txt)">Why roots of unity?</strong> The n-th roots of unity are the complex numbers ωₙᵏ = e^(2πik/n) for k = 0, 1, …, n−1. They have two algebraic properties that make the recursion collapse:<br>
+      — <strong>Cancellation:</strong> ω^(k + n/2) = −ωᵏ, so the second half of outputs mirrors the first with a sign flip — no extra computation.<br>
+      — <strong>Halving:</strong> (ωₙᵏ)² = ω_{n/2}^k, so squaring maps n-th roots to (n/2)-th roots — the subproblem shrinks by half each level.</p>
+
+      <div class="concept-box grn" style="margin-top:8px">
+        <strong>The Even-Odd Split (Cooley-Tukey, 1965):</strong><br>
+        Split A by even and odd index: A(x) = A_even(x²) + x · A_odd(x²)<br>
+        where A_even = [a₀, a₂, a₄, …] and A_odd = [a₁, a₃, a₅, …]<br><br>
+        To evaluate A at all n roots of unity, we only need to evaluate A_even and A_odd at n/2 roots — the problem halves! Applying this recursively gives the recurrence:<br>
+        <strong>T(n) = 2T(n/2) + Θ(n)</strong><br>
+        By the Master Theorem (Case 2, a=2, b=2, log₂2=1): <strong>T(n) = Θ(n log n)</strong>
+      </div>
+
+      <p style="margin-top:8px"><strong style="color:var(--txt)">The Butterfly Operation:</strong> At each level of the recursion, pairs of values are combined using the formula:<br>
+      &nbsp;&nbsp;&nbsp;t = ω · y_odd[k] &nbsp;&nbsp; (twiddle factor)<br>
+      &nbsp;&nbsp;&nbsp;y[k] = y_even[k] + t &nbsp;&nbsp; (upper output)<br>
+      &nbsp;&nbsp;&nbsp;y[k + n/2] = y_even[k] − t &nbsp;&nbsp; (lower output, free from cancellation!)<br>
+      With log₂(n) levels and n/2 butterflies per level, total butterflies = (n/2) · log₂(n) = O(n log n).</p>
+
+      <p style="margin-top:8px"><strong style="color:var(--txt)">Inverse FFT:</strong> To recover coefficients from point-values, we use the Inverse FFT — identical to FFT but with the conjugate twiddle ω⁻¹ = e^(−2πi/n) and a final division by n. The DFT matrix Dₙ is unitary: Dₙ⁻¹ = (1/n)D̄ₙ. This closes the evaluate-multiply-interpolate pipeline perfectly.</p>
+
+      <div class="concept-box" style="margin-top:8px">
+        <strong>Worked Example:</strong> A = [1, 2, 3, 4], B = [1, 1, 1, 1]<br>
+        Naïve: 4 × 4 = 16 multiplications &nbsp;|&nbsp; FFT: pad to n=8, 3 levels, ~40 operations<br>
+        Result: C = [1, 3, 6, 10, 10, 9, 7, 4] → C(x) = 1 + 3x + 6x² + 10x³ + 10x⁴ + 9x⁵ + 7x⁶ + 4x⁷ ✓<br>
+        At scale (n=1,000): naïve = 1,000,000 ops vs FFT ≈ 10,000 ops → <strong style="color:var(--grn)">100× speedup</strong>
+      </div>
+
+      <p style="margin-top:8px"><strong style="color:var(--txt)">How to use this tool:</strong> Enter two polynomials as comma-separated coefficients (low to high degree), click <strong style="color:var(--acc)">Build Steps</strong>, then use <strong style="color:var(--acc)">Step</strong> or <strong style="color:var(--acc)">Play</strong> to animate through the FFT butterfly network. Each step highlights the active pseudocode line, shows a step explanation, and displays a key algorithmic insight. The right panel animates the full butterfly network. Detailed lecture notes for each concept are in the cards below.</p>
+    </div>
 
     <div class="lec-card">
       <div class="lec-card-title">Why FFT?</div>
