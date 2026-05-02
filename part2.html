@@ -854,7 +854,7 @@ function buildCRTSteps(eqs) {
 
   for (let i = 0; i < k; i++) {
     st.push({ ph:'COMPUTE_Mi', title:`Step 3.${i+1}a — M${i+1} = M / m${i+1} (complement product)`,
-      ex:`Divide M by m${i+1} to get M${i+1} — divisible by every modulus EXCEPT m${i+1}.\n→ M${i+1} = ${M} / ${mis[i]} = ${Mis[i]}\n→ m${j} | M${i+1} for all j ≠ ${i+1}: ${mis.filter((_,j)=>j!==i).map(m=>`${m} | ${Mis[i]}`).join(', ')} ✓\n→ m${i+1} ∤ M${i+1}: ${mis[i]} ∤ ${Mis[i]} — so term${i+1} will be non-zero mod m${i+1}\n→ This "isolation" property is the core trick of CRT`,
+      ex:`Divide M by m${i+1} to get M${i+1} — divisible by every modulus EXCEPT m${i+1}.\n→ M${i+1} = ${M} / ${mis[i]} = ${Mis[i]}\n→ mⱼ | M${i+1} for all j ≠ ${i+1}: ${mis.filter((_,j)=>j!==i).map(m=>`${m} | ${Mis[i]}`).join(', ')} ✓\n→ m${i+1} ∤ M${i+1}: ${mis[i]} ∤ ${Mis[i]} — so term${i+1} will be non-zero mod m${i+1}\n→ This "isolation" property is the core trick of CRT`,
       pc:[4,5], data:{ M, Mis: Mis.slice(0,i+1), yis:[...yis], partials:[...partials], activeEq:i, step:'Mi' } });
 
     const trace = extGCDTrace(Mis[i], mis[i]);
