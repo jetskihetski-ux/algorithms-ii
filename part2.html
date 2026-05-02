@@ -143,7 +143,7 @@ input[type="text"], input[type="number"], textarea,
    TOOL BODY — two-column
    ============================================================ */
 .tool-body {
-  display: grid; grid-template-columns: 420px 1fr;
+  display: grid; grid-template-columns: 420px 1fr; grid-template-rows: 1fr;
   flex: 1; min-height: 0; overflow: hidden;
 }
 
@@ -359,7 +359,7 @@ input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(61,
 /* ============================================================
    RIGHT PANEL
    ============================================================ */
-.right-panel { display: flex; flex-direction: column; background: var(--bg0); overflow: hidden; }
+.right-panel { display: flex; flex-direction: column; background: var(--bg0); overflow: hidden; height: 100%; }
 .viz-header {
   padding: 11px 20px; border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 14px;
@@ -370,8 +370,8 @@ input[type="range"]:hover::-webkit-slider-thumb { box-shadow: 0 0 0 4px rgba(61,
 .legend-item { display: flex; align-items: center; gap: 5px; font-family: 'Inter', system-ui, sans-serif; font-size: 9px; font-weight: 500; color: var(--txt2); }
 .legend-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; }
 
-.viz-area { flex: 1; position: relative; overflow: hidden; }
-svg.canvas { width: 100%; height: 100%; display: block; }
+.viz-area { flex: 1; position: relative; overflow: hidden; min-height: 380px; }
+svg.canvas { width: 100%; height: 100%; min-height: 380px; display: block; }
 
 .poly-result {
   background: var(--bg1); border-top: 1px solid var(--border);
@@ -749,7 +749,7 @@ m = m_q + h · q<br>
     </div>
   </div>
   <div class="viz-area">
-    <svg class="canvas" id="mainSvg"></svg>
+    <svg class="canvas" id="mainSvg" viewBox="0 0 800 480" preserveAspectRatio="none" width="100%" height="420"></svg>
   </div>
   <div class="poly-result" id="resultStrip">
     <div class="poly-term">
@@ -1010,7 +1010,7 @@ function hlLines(nums) {
    ================================================================= */
 function drawCRT(idx) {
   const svg = document.getElementById('mainSvg');
-  const W = svg.clientWidth || 800, H = svg.clientHeight || 480;
+  const W = 800, H = 480;
   svg.innerHTML = '';
   const s = steps[idx]; if (!s) return;
   const ns = 'http://www.w3.org/2000/svg';
@@ -1077,8 +1077,8 @@ function drawCRT(idx) {
     return;
   }
 
-  /* ---- Number line view (INPUT and RESULT phases) ---- */
-  if (d.step === 'input' || d.step === 'result') {
+  /* ---- Number line view (RESULT phase only) ---- */
+  if (d.step === 'result') {
     const M_num = d.M ? Number(d.M) : congs.reduce((a,e)=>a*e.m,1);
     const dispMax = Math.min(M_num, 150);
     const NL_L = 140, NL_R = 28;
@@ -1244,7 +1244,7 @@ function drawCRT(idx) {
    ================================================================= */
 function drawRSA(idx) {
   const svg = document.getElementById('mainSvg');
-  const W = svg.clientWidth || 800, H = svg.clientHeight || 480;
+  const W = 800, H = 480;
   svg.innerHTML = '';
   const s = steps[idx]; if (!s) return;
   const ns = 'http://www.w3.org/2000/svg';
@@ -1413,7 +1413,20 @@ function applyStep(i) {
     if (wrap) wrap.scrollTop = cur.offsetTop - wrap.clientHeight / 2;
   }
 
-  MODE === 'crt' ? drawCRT(i) : drawRSA(i);
+  try {
+    MODE === 'crt' ? drawCRT(i) : drawRSA(i);
+  } catch(e) {
+    const svg = document.getElementById('mainSvg');
+    svg.innerHTML = '';
+    const ns = 'http://www.w3.org/2000/svg';
+    const t = document.createElementNS(ns,'text');
+    t.setAttribute('x','400'); t.setAttribute('y','240');
+    t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','middle');
+    t.setAttribute('fill','#f0504a'); t.setAttribute('font-size','13');
+    t.setAttribute('font-family','IBM Plex Mono,monospace');
+    t.textContent = 'Draw error: ' + e.message;
+    svg.appendChild(t);
+  }
 }
 
 function buildAndStart() {
@@ -1423,9 +1436,25 @@ function buildAndStart() {
   document.getElementById('sX').textContent = '—';
 
   if (MODE === 'crt') {
-    steps = buildCRTSteps(congs);
-  } else {
-    steps = buildRSASteps();
+    for (const eq of congs) {
+      if (!Number.isInteger(eq.a) || !Number.isInteger(eq.m) || eq.m < 2 || eq.a < 0) {
+        document.getElementById('explanation').innerHTML =
+          `<span style="color:var(--red)">⚠ Invalid input — all remainders must be whole numbers ≥ 0 and all moduli must be whole numbers ≥ 2. Use a preset to reset.</span>`;
+        return;
+      }
+    }
+  }
+
+  try {
+    if (MODE === 'crt') {
+      steps = buildCRTSteps(congs);
+    } else {
+      steps = buildRSASteps();
+    }
+  } catch(e) {
+    document.getElementById('explanation').innerHTML =
+      `<span style="color:var(--red)">⚠ Error: ${e.message}. Try clicking a preset to reset the inputs.</span>`;
+    return;
   }
 
   /* build history */
@@ -1608,7 +1637,7 @@ setStatus('idle','IDLE');
   const svg = document.getElementById('mainSvg');
   const ns = 'http://www.w3.org/2000/svg';
   const t = document.createElementNS(ns,'text');
-  t.setAttribute('x','50%'); t.setAttribute('y','50%');
+  t.setAttribute('x','400'); t.setAttribute('y','240');
   t.setAttribute('text-anchor','middle'); t.setAttribute('dominant-baseline','middle');
   t.setAttribute('fill','#4a6080'); t.setAttribute('font-size','12');
   t.setAttribute('font-family','Inter,system-ui,sans-serif');
